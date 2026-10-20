@@ -35,3 +35,11 @@ Run these in order when the user requests a new research batch. This is a conclu
 23. **V3 expiry-aware performance reporting:** for each V3 preset and identical window, report wins, losses, expired, open, decision win rate `wins/(wins+losses)`, all-resolved win share `wins/(wins+losses+expired)`, expiry share, and PnL contribution from expired cases. Preserve the current cohort and outcome rows; analysis/reporting only.
 
 24. **V3 ambiguous-outcome coverage:** count `outcome='ambiguous'` separately by preset and source fingerprint; compare it with `resolved + open` shown by the panel. Report terminal cases and scored cases separately, preserve `pnl_pct=NULL`, and do not coerce ambiguity to a financial outcome. Read-only analysis/reporting.
+
+25. **V3 runtime-settings provenance:** compare the panel fallback constants with canonical `pipeline_settings` values and identify runs/windows where runtime settings are missing or differ. Separate runtime-confirmed from fallback-only assumptions; read-only, no setting changes.
+
+26. **Resolver partial-write reconciliation:** compare `candidates`, `resolved`, `db_update_failed` audit events, candle-fetch blocks, and remaining open rows by invocation. Quantify successful, failed, and blocked outcomes separately; read-only.
+
+27. **Gross-versus-net V3 counterfactual:** document the current gross-return definition and, only where fee assumptions are evidenced, compute a separate net-return sensitivity with explicit assumptions. Keep original `pnl_pct` unchanged; don't compare gross V3 directly with fee-adjusted paper PnL as if identical.
+
+28. **Resolver batch starvation and selection coverage:** for matured and regular open cohorts, reconstruct selected IDs per invocation and measure oldest age, repeat selections, time-to-resolution, and never-selected rows under changing counts. If historical per-ID audit is unavailable, mark coverage unknown; no production changes.
