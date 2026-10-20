@@ -24,10 +24,10 @@ The data export alone is not the intelligence workflow. For each run, retain a r
 Write each conclusion as a new JSON object line in an append-only JSONL ledger; never replace an older conclusion in place. Required fields are defined in `docs/MATCHING_CONCLUSIONS_LEDGER.md`. Example validation command:
 
 ```bash
-python3 scripts/validate-conclusion-ledger.py data/conclusions/conclusions.jsonl
+python3 scripts/validate-matching-conclusions.py data/conclusions/conclusions.jsonl
 ```
 
-The validator checks record shape and unique conclusion IDs. It does not yet prove source-ID resolution or validate checksums against source manifests; those checks must be implemented in the end-to-end pipeline before claiming full validation.
+The validator checks required fields, unique conclusion IDs, status values, and SHA-256 formatting. To check source-ID existence, provide a newline-delimited source inventory using `--source-ids`; it still does not reconcile checksums against source manifests or prove the matching run itself is reproducible.
 
 Only after the conclusion records and their evidence links are persisted should the IRL Intelligence index be rebuilt from them. The index is derived and rebuildable; it must never be the only copy of conclusions or source evidence. Every intelligence claim must link to conclusion IDs and ultimately to source records. Keep Legacy/V2/V3 cohorts separate, unresolved outcomes unresolved, and historical decision-time availability boundaries explicit.
 
