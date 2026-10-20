@@ -244,3 +244,50 @@ Migration `20261012173000_variant_benchmark_cohorts.sql` defines two separate fu
 - NULL fingerprints are included in the legacy function but excluded from V2. Record this difference when comparing historical outputs.
 
 This source-level finding reinforces the rule: Legacy/V2/V3 are separate and function names alone do not guarantee comparable samples. IRL should store the query/evaluator definition hash alongside every imported aggregate.
+
+
+## 15. Fresh canonical database snapshot and storage priorities (2026-10-20 11:34 UTC)
+
+A read-only query against canonical TCC project `yckewtpfttvwiptmmrfq` measured the database at **526,126,227 bytes (~502 MB)**. This is the current recorded snapshot, superseding older size readings for planning. No data was modified.
+
+Largest measured relations:
+- `strategy_shadow_diagnostics`: ~93 MB / estimated 111,517 rows.
+- `composite_signals`: ~75 MB / estimated 16,139 rows.
+- `strategy_variant_signals`: ~40 MB / estimated 67,587 rows.
+- `pipeline_runs`: ~36 MB / estimated 858 rows.
+- `whale_alerts`: ~33 MB / estimated 57,223 rows.
+- `market_candles`: ~30 MB / estimated 89,258 rows.
+- `accumulation_shadow_observations`: ~25 MB / estimated 55,409 rows.
+- `asset_sentiment_snapshots`: ~16 MB / estimated 30,457 rows.
+- `asset_social_snapshots`: ~15 MB / estimated 24,900 rows.
+- `asset_flow_snapshots`: ~12 MB / estimated 37,530 rows.
+- `event_flow_study_snapshots`: ~12 MB / estimated 55,585 rows.
+- `asset_price_snapshots`: ~11 MB / estimated 37,530 rows.
+
+These row counts are planner estimates; exact counts and row hashes must be produced from one consistent snapshot before export. Relation sizes include storage outside the plain heap, including indexes/TOAST where applicable. Do not delete data based on this list. The correct next step is to preserve and transfer research-relevant observations, then separately decide source retention only after a verified export and independent approval.
+
+Archive table sizes in this snapshot: `research_evidence` ~1.95 MiB (3,019 estimated rows), `research_cases` ~1.48 MiB (3,000 estimated rows), `research_findings` 0 rows / 40 KiB, `research_archive_control` one row / 32 KiB. Removing these tables would not solve the database-size issue and is not authorized by this ledger.
+
+## 16. Current strategy configuration versus implementation guard
+
+The current `strategy_config` row observed at this snapshot:
+- preset `conservative`, whale/technicals/council weights 1.2/1.2/1.2, prediction weight 0;
+- automatic switching enabled, interval 1 hour;
+- updated `2026-10-17T13:30:04.845Z`;
+- last reason text reports resolved=2, average PnL +4.00%, win rate 100%.
+
+Source code `src/lib/strategy.functions.ts` independently checks `auto_switch_enabled`, loads 7-day variant performance, and blocks automatic selection unless at least one preset has `resolved >= 25` and positive average PnL. Thus a last-reason string referencing two observations does **not** by itself prove that a preset switch was applied on two samples; it may be a stale/different log path. The actual current gate is 25 resolved samples in the inspected function. Preserve the discrepancy for forensic review. IRL does not modify the source config.
+
+## 17. Source-to-IRL transfer priority
+
+Priority order for the first bounded, provenance-preserving export:
+1. Strategy definitions/config snapshots and all versioned scorer/evaluator code references.
+2. `strategy_variant_signals` and `composite_signals`, retaining every source ID, fingerprint, entry context, cohort and resolution field.
+3. `trades` and `council_lessons` / `council_signals`, with links to source signal IDs and separate immutable entry versus outcome events.
+4. `strategy_shadow_diagnostics`, `early_entry_variant_decisions`, `accumulation_shadow_observations`, `repeated_buy_research_ledger`, preserving bounded feature fields and decision reasons.
+5. Whale flow: alerts, snapshots, transitions, transition contexts and shock follow-ups.
+6. Asset price, flow, sentiment, social and news/event evidence, with explicit event/observed/available times and source provenance.
+7. Indicator/candle history needed to reproduce the exact experiment windows, with explicit storage budgeting.
+8. Compact pipeline run metadata only; do not bulk copy large `pipeline_runs.result` JSON.
+
+Every export must be idempotent and include exact per-table row counts, distinct source IDs, null-fingerprint counts, deterministic logical hashes, extraction query/code version and snapshot boundary. Import must not begin until the destination project is verified. All source records remain preserved.
