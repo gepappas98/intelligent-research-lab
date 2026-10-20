@@ -347,3 +347,10 @@ A fresh read-only query reconstructed the V3 maturity timeline from the current 
 Therefore, a “Variant Performance (7d) — 0 resolved” screen captured around 2026-10-20 00:10 Greece time (2026-10-19 21:10 UTC) is consistent with the cohort's actual maturity at that time. It is not, by itself, evidence of an RPC, frontend or database-target defect. Later resolved counts are a newer snapshot, not a retroactive correction to the earlier screen.
 
 Keep the 72-hour benchmark horizon and the source resolver's actual TP/SL path separate: some records can resolve before 72 hours by hitting TP/SL, while records that remain open are not losses. Use timestamped snapshots when comparing dashboard observations.
+
+
+## 2026-10-20 consolidated knowledge capture
+
+The detailed research rules and historical learnings are now consolidated in [Research Knowledge Ledger](./RESEARCH_KNOWLEDGE_LEDGER.md). It includes the source-context paper-trading assumptions, Legacy/V2/V3 cohort boundaries, strategy preset weights read from source code, MTF gate defaults and evidence-strength caveats, Early Entry, Flow Lab, whale-flow, news-to-flow hypotheses, data-quality risks, and the archive incident's containment status.
+
+This is the first substantive knowledge transfer into the IRL repository, but it is **not yet the row-level data migration**. Source records, IDs, event timestamps, outcomes and fingerprints still require a consistent read-only export and destination-side validation. The currently connected Supabase account views expose only the canonical TCC project and an unrelated inactive project; neither is a verified IRL destination. Do not import into either one and do not create a paid branch/project to bypass the missing destination.
