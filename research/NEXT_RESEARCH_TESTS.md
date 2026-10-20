@@ -107,3 +107,5 @@ Run these in order when the user requests a new research batch. This is a conclu
 70. **Storage driver exact counts:** compare exact row counts, table-plus-index sizes and growth trends for diagnostics, composite signals, variants, pipeline runs, whale alerts, candles and accumulation observations; treat `pg_stat_user_tables` tuple estimates as approximate only.
 
 71. **Retention-to-storage alignment:** compare the proposed nine-table archive scope with the largest live table-plus-index consumers; identify growth/retention controls for the largest tables before any cleanup proposal. No archive enablement or source deletion.
+
+72. **Early-entry candle lineage / look-ahead audit:** inspect the exact scorer/collector code and `metrics.candle_symbols`; prove for each 5m/15m input whether the candle was closed and available at decision time. The first read-only join was inconclusive because decision rows do not provide a normalized source-candle ID/time tuple. Do not label this a confirmed defect or clean result until lineage is demonstrated. No production changes.
