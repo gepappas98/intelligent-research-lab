@@ -734,3 +734,6 @@ Observed historical population at audit time:
 - No historical trades, decision rows, source candles, PnL, or statuses were changed.
 
 Source commits on `pixel-perfect-pixels/main`: `e0d76fa84bb618b8b05da12edfdebf4b4bed3fd8` (collector), `c60d0dd282bcaf71c8a10c5be45ef8e8978a1e86` (variants), `a7fe43359650e06a57496fda504d7215a0c70145` (regime), `0617f1e8220d4eb0d0c467ca485cf3d8e872fd33` (duplicate-key cleanup), `1e71f9c2e22154cb27190314ee1bd995cab0a237` (Deno tests), `e51edb5c55e9eca1dda8953877b707f568342056` (remove obsolete test extension), and `09e76675c3a0e24877f0c1a7d2de97c06cc9f5e9` (CI read permission).
+
+
+Baseline runtime caveat — 2026-10-20 16:00 UTC: the `early-entry-variants` runtime decision metrics passed both checks (`latest_close_time` strictly before `evaluation_at`; `latest_captured_at` no later than evaluation). The scheduled `trading-pipeline-orchestrator` run did not reach `early-entry-regime`: the critical `whale-watch` stage returned HTTP 500 and the orchestrator exited early. The baseline function's deployed code passes CI and its predicates are verified, but post-deploy runtime telemetry remains pending until a successful orchestrator run. It was not manually invoked because it can open paper positions.
