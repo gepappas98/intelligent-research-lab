@@ -115,3 +115,7 @@ These are implementation records, not automatic claims of profitability.
 ## Provenance note
 
 This document consolidates findings previously recorded in project conversations and research summaries through 2026-10-20. Some older benchmark values are available here without their original full run IDs, exact time-window boundaries, or per-trade evidence; those fields are explicitly not invented. They should be backfilled only when matching evidence is retrieved. This file is a structured research knowledge transfer, not a verified complete export of every historical conclusion.
+
+
+## Update — source-reported archive state and evidence coverage (2026-10-20)
+The source repository's latest `PROJECT_STATE.md` reports archive capture and source deletion both disabled, 22,150 eligible source rows still unarchived with missing evidence, 3,000 materialized research cases / 3,019 bounded evidence records, and 551 V3 cases still open with no maturity timestamp. Database size is reported at 464 MB after reindexing; PR #132 and ephemeral PostgreSQL migration tests are complete, while user-controlled Lovable sync/publish and runtime RPC-status verification remain pending. Treat these as source-documented production status, not a fresh independent query from this work session. Archive is paused; no source deletion is reported.
