@@ -737,3 +737,25 @@ Source commits on `pixel-perfect-pixels/main`: `e0d76fa84bb618b8b05da12edfdebf4b
 
 
 Baseline runtime caveat — 2026-10-20 16:00 UTC: the `early-entry-variants` decision metrics passed both timestamp checks. That orchestrator run did not reach `early-entry-regime` because `whale-watch` returned HTTP 500. Follow-up verification at 16:20 UTC: collector, variants, and orchestrator cron jobs all reported `succeeded`; the three variant decisions recorded `evaluation_at=16:20:01.277Z`, `latest_close_time=16:09:59.999Z`, and `latest_captured_at=16:10:09.994Z`, so both timestamp bounds held. No new baseline `early_entry_regime` paper entries were created after deployment. The baseline function was not manually invoked because it can open paper positions; its deployed predicates are covered by CI, while a direct per-invocation baseline telemetry confirmation remains pending.
+
+
+## F-20261020-74 — Stagger variant evaluation after candle collection (2026-10-20)
+
+**Status:** Production cron offset applied; first post-change scheduled run requires runtime verification. **Scope:** scheduling only; strategy logic unchanged.
+
+### Confirmed race
+The `market-candle-collector` (job 19) and `early-entry-variants` (job 21) were both scheduled on `*/10 * * * *`. At 16:20 UTC, both cron requests were dispatched at approximately the same instant. The variants evaluator recorded `evaluation_at=2026-10-20T16:20:01.277Z` but used the newest available 5m candle with `close_time=16:09:59.999Z` and `captured_at=16:10:09.994Z`, approximately 10 minutes old. The collector subsequently stored the candle closed at `16:19:59.999Z`, captured at `16:20:11.182Z`. This was not a look-ahead violation: both timestamps passed the guards. It was a scheduling race that delayed variant evidence by one collection interval.
+
+The orchestrated baseline `early-entry-regime` is different: it runs later, after ingestion and signal synthesis. Its 16:20 evaluation at `16:20:38.978Z` used the 5m candle closed at `16:19:59.999Z`, captured at `16:20:11.182Z`, satisfying both time bounds.
+
+### Narrow production correction
+- Left collector job 19 unchanged at `*/10 * * * *`.
+- Changed only variant job 21 to `1-59/10 * * * *` (minute 1, 11, 21, 31, 41, 51), placing its evaluation one minute after the collector's scheduled request.
+- Applied and read back the schedule at 2026-10-20 16:30:01 UTC. The first expected post-change variant run is 16:31 UTC; runtime confirmation is pending at the time of this record.
+- No source-code gates, thresholds, position sizing, TP/SL, entry logic, other cron schedules, historical rows or trade outcomes were changed.
+
+### Post-deployment data check
+At the 16:30 UTC read, rows captured since the 15:56 UTC deploy cut-off totaled 322 for 5m and 164 for 15m; zero rows were captured before `close_time`, and zero had `close_time >= now()`. The active collector source was `binance-spot-klines`. The early-entry evaluators consume 5m candles; the 15m figures verify collector integrity, not direct evaluator consumption.
+
+### Required follow-up
+After the first staggered run, verify that the variant metrics show a current closed candle captured before evaluation, with capture age materially below the previous ~9.8 minutes; confirm job 21 remains active and that all A/B/C decisions still record evaluation/candle timestamps. This is a freshness check only; do not change gates based on the result. Historical contamination remains unquantifiable, and no retrospective trade reclassification is permitted.
