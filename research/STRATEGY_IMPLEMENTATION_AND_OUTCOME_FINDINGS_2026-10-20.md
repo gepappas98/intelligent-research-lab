@@ -805,3 +805,7 @@ A baseline run at 16:40:23.444Z used the pre-final deployment during the schema/
 
 ### Storage trim after first lineage batch — 16:44 UTC
 The initial table design included a standalone `evaluation_id` index that duplicated the leftmost prefix of the unique evaluation/source index, plus optional direct decision/trade FK columns that are not used by the current writers (evaluation IDs are already stored in decision metrics and baseline/trade metadata). Removed those unused columns and the redundant indexes through migration `20261020171000_early_entry_lineage_storage_trim.sql`. The 52 already-written lineage rows were preserved. Total relation size fell from 120 kB to 96 kB; indexes fell from 72 kB to 48 kB. Current indexes are the primary key, the unique evaluation/source tuple, and the symbol/time index. No evaluator code or strategy gate changed.
+
+
+### Internal access policy hardening — 16:45 UTC
+Added explicit RLS policy `early_entry_candle_lineage_service_role_only` (`FOR ALL TO service_role`) and kept all grants revoked for `anon` and `authenticated`. Verification confirms no anon/authenticated SELECT privilege, service_role INSERT privilege, and no remaining Supabase security-advisor finding specific to this table. Migration: `20261020171500_early_entry_lineage_service_role_policy.sql`. The symbol/time index is intentionally retained for future source-lineage investigations; the advisor currently labels it unused because the table is new and only the evaluation-ID audit query has run.
