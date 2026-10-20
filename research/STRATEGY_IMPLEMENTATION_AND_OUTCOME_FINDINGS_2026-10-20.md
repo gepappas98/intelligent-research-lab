@@ -138,3 +138,15 @@ The reviewed pipeline caller sets researchMode = (mode === "paper") and passes i
 **Research implication:** any paper cohort produced with researchMode=true must be labelled capacity-unbounded and not evaluated as if the normal risk brakes had constrained it. Before comparing it to capped paper results, record the actual caller's researchMode value and quantify counterfactual breaches: positions above 3, daily economic loss below −1.2% equity, aggregate stop-risk above 1.2%, and 3+ losses in the last 5. Also reconcile gross pnl versus net_pnl for the loss-streak rule. This is an evaluation distinction, not a recommendation to turn the brakes on or off.
 
 Source: [risk.engine.ts](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/risk.engine.ts).
+
+
+## Finding F-20261020-14 — Whale-flow shock “complete” labels require paired BTC-price coverage; runtime parity is unresolved
+**Status:** corrective SQL verified in source; canonical production application must be verified independently. **Confidence:** high for the SQL contract, provisional for current data state.
+
+The historical canonical audit recorded 546 rows labeled `complete_24h`, but only 144 had `btc_return_24h` populated. The defect was semantic, not merely missing data: earlier refresh SQL assigned completeness from flow deltas alone, so a row could claim a complete flow→BTC-price horizon without the paired price return. The reviewed corrective migration `20261009050000_fix_whale_flow_shock_data_quality.sql` instead labels a horizon complete only when both the corresponding flow delta and BTC return are non-null (15m, 1h, 4h, or 24h). It upserts derived follow-up rows and leaves raw snapshots/transitions untouched.
+
+The source stabilization tracker has conflicting historical status notes: it describes PR #72 as not yet applied in one section, while also containing a post-recomputation verification result elsewhere. Therefore neither “still broken” nor “fixed in production” is safe to assert from repository text alone. The corrected SQL exists at the reviewed source revision; current canonical migration history and post-refresh row counts remain the decisive checks.
+
+**Research implication:** exclude or separately stratify old `complete_*` cohorts unless paired-horizon completeness is verified. For each horizon, require both flow delta and BTC return, retain the label-definition/version and refresh timestamp, and never treat missing BTC return as zero or as evidence of no price response. Do not rerun the production refresh or apply migrations as part of this conclusions-only transfer.
+
+Sources: [corrective migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261009050000_fix_whale_flow_shock_data_quality.sql), [stabilization tracker](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/docs/P0_STABILIZATION_TRACKER.md), [PR #72](https://github.com/gepappas98/pixel-perfect-pixels/pull/72).
