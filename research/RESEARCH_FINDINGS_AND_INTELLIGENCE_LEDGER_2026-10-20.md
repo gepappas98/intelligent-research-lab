@@ -190,3 +190,6 @@ The first offset variant run succeeded (job 21 at 16:31:00.396Z). All A/B/C deci
 
 
 Follow-up live audit — 2026-10-20 16:32 UTC: the 16:31 variant cycle succeeded and reduced the newest selected candle's close lag to 1.01 minutes / capture age to 0.82 minutes. The 16:30 baseline cycle also passed both timestamp bounds and had no gate-qualified entry. Post-deploy candle integrity aggregate: 643 rows across 5m/15m; zero captured before close and zero still unclosed at query time. No post-deploy early-entry paper trades found. First offset cycle passed; keep monitoring without changing gates.
+
+
+Decision lineage reconciliation — 2026-10-20 16:32 UTC: all 12 post-deploy variant decisions (4 each for A/B/C) contained evaluation/close/capture timestamps and passed both temporal inequalities; all were NO_ENTRY. No post-deploy early-entry paper trade was found. Candle collector audit: 426 5m and 217 15m rows since deploy, zero captured before close. For the 19 pre-deploy baseline paper trades, 19/19 had gate diagnostics but 0/19 had candle evaluation/close/capture timestamps or source references. This confirms why exact historical contamination cannot be counted; do not retroactively relabel trades.
