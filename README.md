@@ -43,3 +43,6 @@ The following documents are being reviewed on branch `research/knowledge-transfe
 - [Wrong-repository dependency inventory, callers, SQL routines and cron jobs](docs/WRONG_REPO_DEPENDENCY_INVENTORY.md)
 
 IRL's own isolated writable database is still unconfirmed. Until it is positively identified, remain read-only against source systems and do not apply migrations or copy production records.
+
+
+Current database identity blockers and the latest destination recheck are documented in [the Supabase project map](docs/SUPABASE_PROJECT_MAP.md).
