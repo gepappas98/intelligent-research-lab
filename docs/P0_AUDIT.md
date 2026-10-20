@@ -103,3 +103,37 @@ Before building ingestion or outcome calculations, define and test:
 ## Safety boundary
 
 This document records observed facts and remaining questions, not a certification of system health or data correctness. The audit did not alter the existing Trading Command Center, execute trades, write to its tables, or apply migrations.
+
+
+## 8. Addendum — wrong-repository archive state and dependency trace (2026-10-20)
+
+This addendum supersedes earlier source-size/count snapshots only where explicitly stated. Earlier measurements above remain historical observations, not current values.
+
+### Latest source-side archive snapshot
+
+Read-only inspection of the canonical Trading Command Center project `yckewtpfttvwiptmmrfq` reported:
+
+- Database size: **504,605,843 bytes (~481 MB)**.
+- `research_evidence`: 3,019 rows; `research_cases`: 3,000 rows; `research_findings`: 0 rows; `research_archive_control`: 1 row.
+- Archive capture and source deletion are both disabled.
+- Retention preflight: 29,790 eligible source rows, 0 archived and 29,790 missing evidence. Coverage is incomplete; do not enable retention or delete source rows.
+- Permissive `SELECT USING (true)` policies for `anon` and `authenticated` were observed on the archive tables. No policy changes have been made.
+- The archive-specific applied migration history and cron dependencies are documented in [the containment plan](WRONG_REPO_CONTAINMENT_AND_ROLLBACK.md) and [dependency inventory](WRONG_REPO_DEPENDENCY_INVENTORY.md).
+
+### Confirmed source application dependency paths
+
+Read-only GitHub inspection of the current source `main` found:
+
+1. `src/lib/pipeline.server.ts` calls `refresh_research_knowledge_cases({ p_lookback_hours: 72 })` after post-mortem generation, with an 8-second timeout and fail-open handling. A failure is logged/recorded; the code says the trading flow continues unchanged.
+2. `src/lib/research-knowledge.functions.ts` reads `research_evidence`, `research_cases` and `research_findings`, and calls `get_research_archive_status(72,168)`.
+3. `src/components/trading/ResearchKnowledgePanel.tsx` imports the server reader and displays the bounded research snapshot; the component is mounted from `src/routes/index.tsx` and `src/pages/AIReport.tsx`.
+4. `src/lib/_tests_/research-knowledge.test.ts` covers pure temporal eligibility, cohort isolation, outcome maturity, evidence linkage and fail-closed archival contracts. Retain these tests where useful even if the wrong-repository persistence integration is later decoupled.
+5. The archive-specific SQL functions are not isolated from the app yet. Dropping tables/functions before a separately reviewed caller-decoupling change would leave the current reader dependent on missing tables and the pipeline attempting a missing RPC.
+
+### Material semantic limitation
+
+The deployed refresh function uses source `created_at` as both `observed_at` and `available_at` for trades, composite signals and variant signals. Current source inspection does not establish that this is the actual event time or earliest strategy-availability time. The function also does not independently compute the 72-hour maturity boundary from entry time. Treat these generated archive timestamps/maturity labels as unverified; do not import them as authoritative IRL point-in-time facts.
+
+### Current decision
+
+Continue documentation and read-only source tracing only. No production export has yet been created or verified; no IRL writable database has been positively identified; no data has been copied; no source rows, archive tables, functions, policies, cron jobs, trading logic or deployments have been changed by this audit. The next safe phase remains destination identity verification and a secure, checksum-verified export plan before any rollback is considered.
