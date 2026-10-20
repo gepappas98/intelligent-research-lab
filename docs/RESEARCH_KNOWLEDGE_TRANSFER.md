@@ -333,3 +333,17 @@ The first retained BUY from Section 13 was rejected and had no linked trade. A l
 - The position was closed approximately 48 hours after entry, before the nominal 72-hour V3 benchmark expiry. This is a separate operational paper-trade path and should not be silently substituted for the V3 benchmark outcome.
 
 The historical watchlist snapshots show PAXG still pinned at 12:00 UTC on Oct 17, the trade closing at 17:50 UTC, and PAXG absent from the 18:00 UTC snapshot. This supports the observed relationship between open-position pinning and later watchlist removal without proving the precise venue filter that prevented re-entry.
+
+## 17. V3 “0 resolved” panel — timestamped maturity reconciliation
+
+A fresh read-only query reconstructed the V3 maturity timeline from the current row timestamps:
+
+- First V3 sample: **2026-10-19 17:00:30 UTC**.
+- First terminal V3 resolution: **2026-10-19 22:40:24 UTC**.
+- Resolved terminal rows by **2026-10-19 21:10 UTC**: **0**.
+- Resolved terminal rows by **2026-10-20 00:00 UTC**: **8**.
+- Current snapshot at approximately **2026-10-20 05:35 UTC**: **39** terminal rows.
+
+Therefore, a “Variant Performance (7d) — 0 resolved” screen captured around 2026-10-20 00:10 Greece time (2026-10-19 21:10 UTC) is consistent with the cohort's actual maturity at that time. It is not, by itself, evidence of an RPC, frontend or database-target defect. Later resolved counts are a newer snapshot, not a retroactive correction to the earlier screen.
+
+Keep the 72-hour benchmark horizon and the source resolver's actual TP/SL path separate: some records can resolve before 72 hours by hitting TP/SL, while records that remain open are not losses. Use timestamped snapshots when comparing dashboard observations.
