@@ -56,3 +56,16 @@ The source-backed slice recorded negative summed PnL percentage points across th
 
 ## Limitations
 This is a code-history review plus already captured aggregate evidence, not a fresh full-database export or exhaustive replay. It does not alter source rows or production strategy behavior. A future user-requested manual refresh should preserve exact source IDs, run IDs, query/window metadata and cohort filters alongside every aggregate.
+
+
+## Finding F-20261020-06 — Source Research Knowledge archive is designed fail-closed; it is not the IRL transfer format
+**Status:** source-code/history fact; runtime controls are documented in source development history. **Confidence:** high for recorded change, not a live re-query.
+
+The source repository's migration defines compact evidence records with source table/ID, symbol, observed/available/captured timestamps, fingerprint, role (`entry_context`, `outcome`, `observation`) and bounded summary; case records retain cohort (`Legacy`, `V2`, `V3`, `Unknown`), scorer version, entry/resolution/maturity timestamps, outcome, PnL unit and evidence IDs. The source project's documented 2026-10-20 safety correction says broad refresh exceeded SQL timeout, was replaced with bounded 250-row batches and automatic variant materialization narrowed to V3 only; 2,250 resolved V2 cases had already been materialized, while Legacy/V2 remained intact. The documented controls were `allow_archive=false` and `allow_source_delete=false`; 22,150 retention-eligible source rows remained unarchived and undeleted. The existing source cron schedule was left unchanged.
+
+- Migration source: [research_knowledge_archive.sql at 4e55ba1](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020160000_research_knowledge_archive.sql)
+- Change history: [DEVELOPMENT_HISTORY.md at 4e55ba1](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/DEVELOPMENT_HISTORY.md)
+- CI/test source: [research_knowledge_archive.integration.sql](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/tests/research_knowledge_archive.integration.sql)
+
+**IRL decision:** reuse the sound knowledge principles—stable source identity, role-separated evidence, no-lookahead timestamp checks, idempotent fingerprints, explicit cohort/PnL units, and fail-closed safety—but do not copy source rows or enable its archive/delete mechanism for this task. IRL transfer remains conclusions-only and manually initiated. The source project's own bounded V3 materialization is a separate workflow and must not be confused with IRL's manual knowledge refresh.
+
