@@ -75,3 +75,7 @@ Run these in order when the user requests a new research batch. This is a conclu
 48. **Event→Flow global input coverage:** measure eligible RSS/flow/price rows and distinct assets against limits 100/200/200; quantify assets omitted from the latest-per-asset maps. Read-only.
 
 49. **Council lesson consistency:** verify lesson outcomes against the linked trade result; count mismatches without editing historical rows.
+
+50. **Knowledge refresh query scope:** inspect query plans and row counts for each source read by `refresh_research_knowledge_cases`; verify whether the 72-hour parameter bounds it, and measure full-table trade/signal scans. Do not invoke the RPC; read-only source/plan review first.
+51. **Final migration function contract:** apply the full migration chain only in an ephemeral test database and assert the final `refresh_research_knowledge_cases` definition is V3-only if that remains the intended contract; confirm V2/Legacy are not auto-materialized. Never run against production as part of this test.
+52. **Auto-switch sample eligibility:** unit-test every deterministic, AI, no-qualified-positive, and confirmed-Bear branch with cohorts at 7, 8, 24, and 25 resolved cases and positive/negative average PnL. Verify one consistent eligibility rule and that an undersampled preset cannot be selected unintentionally. No production switch.
