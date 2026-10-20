@@ -127,3 +127,7 @@ Three additional source-level risks were added to the implementation findings: t
 
 ## Update — knowledge-case PnL semantics and test coverage
 Further review found that case materialization uses `coalesce(net_pnl,pnl)`, which can treat legacy default-zero net PnL as authoritative even where the risk engine has a fallback to nonzero legacy PnL. Trade cases also store lifecycle `status` in `outcome`, unlike variant cases' economic outcome labels. The archive integration fixture seeds only V3 variant fingerprints, so it cannot catch the later migration's broadened V2/Legacy/Unknown scope. Added read-only tests and ephemeral fixture requirements; no repair or production changes.
+
+
+## Update — experimental exit-policy and maturity-contract parity
+Early Entry B/C source code uses a +6% take-profit and −3% stop, with exit-time max-hold/stale policy read from the shared runtime settings rather than pinned in the entry record. Treat it as its own policy cohort, not directly equivalent to V3's +4%/−3%/72h benchmark. Added a read-only invariant check for terminal V3 outcomes without `resolved_at`, which the RPC counts but the knowledge-case maturity mapping excludes. No entry/exit settings or live strategy were changed.
