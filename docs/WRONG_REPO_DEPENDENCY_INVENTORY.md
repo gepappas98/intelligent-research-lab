@@ -62,3 +62,15 @@ The scheduled `research-data-retention` job passes `cleanup_research_data(72,168
 The latest inspected migration body checks `research_archive_control.allow_archive` before invoking the archive function or reaching any source DELETE. When `allow_archive=false`, it returns early with reason `archive paused pending storage and evidence-value review`. The current control row is reported as `allow_archive=false` and `allow_source_delete=false`, and the live retention preflight is incomplete (29,790 missing evidence). Under that observed state, the function should return before the DELETE statements.
 
 This is a source-code/control-state safety finding, not a claim that no prior deletion has ever occurred or a substitute for checking the live deployed function definition. Before any future maintenance, verify the deployed function body and control row again. No cleanup function was invoked by this audit, and no rows were deleted.
+
+
+## Live database confirmation — read-only SQL, 2026-10-20
+
+A read-only query against the canonical project `yckewtpfttvwiptmmrfq` re-checked the current control row, policies and deployed function definition (using `pg_get_functiondef`); the cleanup function was **not invoked**.
+
+- Live control row `id=1`: `allow_archive=false`, `allow_source_delete=false`, note says archive and source deletion are paused pending storage/evidence-value review.
+- Live `pg_policies`: all three archive tables have SELECT policies to `anon` and `authenticated` with predicate `true`.
+- Live `cleanup_research_data(integer,integer,boolean)` reads the control row when `p_dry_run=false` and returns early if `allow_archive=false`, before its first DELETE. It only reaches the DELETE block after archive is enabled, the archive function returns, and `allow_source_delete=true`.
+- The scheduled job passes `false` for `p_dry_run`, so it is a real cleanup invocation path guarded by those control flags. The observed flags currently prevent that path from reaching source DELETE statements.
+
+This verifies the present guard state, not historical absence of deletion. Keep both flags false. The public-read policies remain a separate security issue; do not change them as part of rollback without an access-model review and a separate reviewed fix.
