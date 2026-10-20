@@ -86,3 +86,9 @@ Run these in order when the user requests a new research batch. This is a conclu
 
 56. **Early Entry exit-policy provenance:** compare B/C entry TP/SL values and active max-hold/stale-exit settings at close; keep the resulting cohort distinct from V3 +4%/−3%/72h benchmarks unless policy parity is demonstrated.
 57. **V3 terminal/resolution invariant:** count rows where `outcome IN ('win','loss','expired')` but `resolved_at IS NULL`, and rows with a non-terminal outcome but non-null `resolved_at`. Compare RPC and knowledge-case coverage; read-only.
+
+58. **Live archive backlog:** record the aggregate result of `get_research_archive_status(72,168)` with both archive/delete controls still false; compare eligible/archived/missing counts by table. Read-only; never call cleanup in non-dry-run mode.
+59. **Live V3 case reconciliation:** reconcile all 2,115 source V3 rows to `research_cases` by stable source ID; classify missing cases separately from stale open cases for terminal source outcomes. No bulk refresh or source mutation.
+60. **Live paper-trade case reconciliation:** compare all source trades with cases/evidence by stable IDs; classify missing open/closed cases and status/PnL/resolution mismatches. Preserve source rows and defer repair until manual-refresh policy is approved.
+61. **Applied migration vs active function:** compare the migration ledger, checked-in migration files and live `pg_get_functiondef` output in a read-only audit; explain the V3-only runtime body vs broader checked-in migration without reapplying migrations.
+62. **Refresh observability:** verify whether final orchestrator persistence overwrites `research_knowledge_sync` telemetry; design a compact merge/preserve contract and prove status is retained in ephemeral tests before any approved source deployment.
