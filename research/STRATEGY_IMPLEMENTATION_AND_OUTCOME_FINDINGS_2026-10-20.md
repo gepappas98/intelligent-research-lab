@@ -160,3 +160,18 @@ The pipeline caller passes `pipelineRunId` into `executeTrades()`, collects `exe
 **Research implication:** absence of a risk rejection is not evidence that a candidate would pass the normal risk limits. Historical audit events alone may be insufficient to estimate counterfactual rejections. First inventory which risk metrics, open positions, equity, realized PnL, and timestamps are actually recoverable for each candidate; label irrecoverable counterfactuals as unknown. For future measurement, prefer a separately versioned, research-only decision snapshot that records calculated risk metrics and “would reject” reasons without changing execution behavior. Do not expand raw `pipeline_runs.result` payloads indiscriminately; store compact typed fields or a bounded summary and preserve the existing payload compaction discipline.
 
 Source: [pipeline.server.ts at reviewed commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/pipeline.server.ts).
+
+
+## Finding F-20261020-16 — Benchmark RPC names represent different cohorts; source UI is wired to V3
+**Status:** source-code contract verified; deployed database/UI parity not verified. **Confidence:** high for reviewed source revision.
+
+The migration `20261018120000_variant_benchmark_v3.sql` defines two distinct contracts:
+- `get_variant_performance(days)` excludes fingerprints prefixed `v2|` and `v3|`; it is therefore the non-V2/non-V3 cohort, not V3.
+- `get_variant_performance_v3(days)` selects only `v3|` fingerprints.
+Both aggregate BUY observations, count `win`, `loss`, and `expired` as resolved, and sum `pnl_pct` across all three resolved outcomes. Expiry semantics therefore remain a separate accounting check.
+
+At reviewed source commit `4e55ba120f37fe959d8dd4256ee6536cedfe5253`, the Variant Comparison panel, strategy auto-switch, and read-only MCP diagnostic call `get_variant_performance_v3`. This is reassuring source-level wiring, but does not prove the production migration is applied or that the published frontend matches this commit. The general RPC must never be described as the V3 result.
+
+Sources: [V3 benchmark migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql), [Variant Comparison panel](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx), [strategy auto-switch](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/strategy-auto-switch/index.ts), [read-only diagnostic allowlist](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/mcp-diagnostic.server.ts).
+
+No production RPC, migration, UI, or strategy was changed in this review.
