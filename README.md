@@ -32,3 +32,14 @@ Read [the preliminary P0 Infrastructure & Data Audit](docs/P0_AUDIT.md) for obse
 ## Initial implementation boundary
 
 Start read-only against existing sources. Confirm GitHub, Lovable, Vercel and Supabase project identities before connecting anything. Keep IRL physically and logically isolated from live/paper execution paths. No automatic strategy switching or execution integration is part of v1.
+
+
+## Transfer and data-contract work (draft PR)
+
+The following documents are being reviewed on branch `research/knowledge-transfer-p0`; they do not authorize a database migration or production import:
+
+- [Research knowledge transfer and source caveats](docs/RESEARCH_KNOWLEDGE_TRANSFER.md)
+- [P0 bitemporal data contract and Legacy/V2/V3 cohort rules](docs/DATA_CONTRACT_P0.md)
+- [Wrong-repository incident containment and rollback gates](docs/WRONG_REPO_CONTAINMENT_AND_ROLLBACK.md)
+
+IRL's own isolated writable database is still unconfirmed. Until it is positively identified, remain read-only against source systems and do not apply migrations or copy production records.
