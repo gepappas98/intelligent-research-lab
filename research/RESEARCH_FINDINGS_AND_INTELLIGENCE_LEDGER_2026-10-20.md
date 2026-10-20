@@ -157,3 +157,5 @@ Storage watchdog note: the one-minute `storage-capacity-watchdog` cron is inacti
 
 ## Live repeated-BUY and exact table-count snapshot — 2026-10-20 ~15:31 UTC
 The repeated-BUY ledger has 2,729 rows; 2,694 (98.72%) have null net PnL, 27 are negative, 8 positive, and the 35 non-null values sum to −$355.78. This is not a mature performance verdict. Exact row counts: strategy_shadow_diagnostics 114,933; composite_signals 16,810; strategy_variant_signals 67,867; pipeline_runs 882; whale_alerts 60,251; market_candles 92,377; accumulation_shadow_observations 57,317. These tables dominate measured storage; several pg_stat_user_tables.n_live_tup estimates were substantially inaccurate, so future row counts should use exact aggregates.
+
+Retention/storage alignment: the proposed archive's nine source tables are not the largest measured storage consumers. The dominant footprints are strategy_shadow_diagnostics, composite_signals, strategy_variant_signals, pipeline_runs, whale_alerts, market_candles, and accumulation_shadow_observations. Enabling the current archive alone would not directly address those tables; no archive/delete action is approved or performed.
