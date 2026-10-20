@@ -399,3 +399,23 @@ Migration `20261020182000_research_archive_capture_gate.sql` explicitly drops `p
 Source: [archive capture gate migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql).
 
 Research rule: measure index size, table size, and representative source-lookup query plans/timings before considering index restoration; do not recreate the index without storage-headroom review.
+
+
+## Finding F-20261020-39 — CMC paper entry has no explicit age gate for listing or watchlist snapshots
+**Status:** source-code fact; actual snapshot staleness is unknown. **Confidence:** high.
+
+`cmc-paper-open` selects the latest `dynamic_watchlist_snapshots` row and up to 1,000 `cmc_listing_snapshots` ordered by `captured_at`, but the reviewed function does not reject the watchlist by `computed_at` age or listings by `captured_at` age. It fetches Binance spot prices during the current invocation, so the price input is newly fetched while CMC momentum, volume, rank, and watchlist membership may come from older snapshots. A current spot price alone does not prove the rest of the entry context is fresh.
+
+Source: [cmc-paper-open at the current source default branch](https://github.com/gepappas98/pixel-perfect-pixels/blob/main/supabase/functions/cmc-paper-open/index.ts).
+
+Research rule: measure watchlist/listing snapshot ages at entry and report stale-context cases separately. Do not claim CMC momentum was contemporaneous unless timestamps demonstrate it.
+
+
+## Finding F-20261020-40 — CMC paper position preflight is capped and non-atomic
+**Status:** source-code fact; duplicate or missed-active-position frequency unknown. **Confidence:** high.
+
+`cmc-paper-open` reads only the newest 1,000 CMC paper trades to build its active-position and 15-minute cooldown maps, then inserts eligible trades without a transaction that binds the preflight read to the insert. Older still-open positions can fall outside the bounded read if enough newer trades exist; overlapping invocations can pass the same preflight before either inserts. The function rechecks neither active state nor a uniqueness constraint atomically at write time.
+
+Source: [cmc-paper-open at the current source default branch](https://github.com/gepappas98/pixel-perfect-pixels/blob/main/supabase/functions/cmc-paper-open/index.ts).
+
+Research rule: compare all open CMC paper trades against the newest-1,000 preflight window and inspect same-symbol opens by invocation time. Treat code-level exposure as a hypothesis until runtime rows confirm incidence.
