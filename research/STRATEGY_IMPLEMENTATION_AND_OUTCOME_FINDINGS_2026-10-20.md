@@ -527,3 +527,31 @@ The V3 Variant Comparison panel labels a preset “best” only when it has at l
 Sources: [auto-switch implementation](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/strategy-auto-switch/index.ts), [Variant Comparison panel](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx).
 
 Research rule: before any strategy-policy change, test every auto-switch branch against one explicit sample-size/positive-expectancy contract. Keep this as a source finding until deployment/configuration and invocation are verified; no production switch was performed.
+
+
+## Finding F-20261020-52 — Knowledge-case PnL fallback treats legacy zero `net_pnl` as authoritative
+**Status:** source-code fact; affected-row count unknown. **Confidence:** high.
+
+The archive refresh populates trade-case PnL with `coalesce(t.net_pnl,t.pnl)`. A numeric zero is non-NULL, so rows with `net_pnl=0` and nonzero legacy `pnl` are materialized as zero PnL. The source's `risk.engine.ts` explicitly documents this historical condition: the fee migration added `net_pnl DEFAULT 0` without a valid closed-trade backfill for some legacy rows, and its `realizedPnlValue()` falls back to legacy `pnl` when net PnL is zero but legacy PnL is nonzero. The research-case materializer does not apply that fallback.
+
+Sources: [research-case migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql), [risk PnL compatibility logic](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/risk.engine.ts), [fee migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/drizzle/migrations/0005_trading_fees.sql).
+
+Research rule: read-only quantify closed trades with `net_pnl=0 AND pnl<>0`; compare case PnL with the established fee-aware fallback, but do not rewrite source rows or archived cases until a documented reconciliation policy is approved.
+
+## Finding F-20261020-53 — Archive integration fixture cannot detect the V3-only migration regression
+**Status:** test-fixture fact. **Confidence:** high.
+
+`supabase/tests/research_knowledge_archive.integration.sql` applies migrations in order, including both the V3-only batch fix and the later archive-gate migration, but its `strategy_variant_signals` fixtures contain only two `v3|` fingerprints. It therefore cannot reveal that the later function definition also admits V2, Legacy and Unknown fingerprints. The current test may pass while the final migration has broadened the variant scope.
+
+Source: [archive integration test](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/tests/research_knowledge_archive.integration.sql).
+
+Research rule: add disposable V2, Legacy, Unknown and V3 fixtures with explicit assertions on which rows the final function materializes; test the final installed function after the full migration chain.
+
+## Finding F-20261020-54 — Trade-case `outcome` stores lifecycle status, not economic win/loss
+**Status:** source-code fact; downstream consumer impact depends on aggregation logic. **Confidence:** high.
+
+The research-case refresh sets trade-case `outcome` to `coalesce(t.status,'unknown')`, so both profitable and losing closed trades are labeled `closed`; the PnL sign remains a separate field. Variant cases instead use economic labels such as `win`, `loss`, `expired`, or `open`. Any combined case analysis that treats `outcome` as a common win/loss label will misclassify or omit paper-trade cases unless it branches on `source_table` or derives economic outcome from validated PnL/close reason.
+
+Source: [research-case refresh migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql).
+
+Research rule: keep lifecycle status and economic outcome as distinct dimensions. For trades, derive win/loss/breakeven only after validating PnL basis and missing values; never silently combine the current `outcome` field across source tables.
