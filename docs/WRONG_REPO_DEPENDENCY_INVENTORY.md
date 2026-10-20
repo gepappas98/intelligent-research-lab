@@ -106,3 +106,10 @@ The batch-fix migration 20261020180000_research_knowledge_sync_batch_fix.sql was
 - Evidence inserts use ON CONFLICT (fingerprint) DO NOTHING, while case rows may be updated later. This means the materialized case can reflect a newer outcome while its original entry evidence remains the first inserted version. Preserve both source record/version and each observed outcome revision when designing IRL ingestion.
 
 IRL contract decision: store immutable source-observation events and immutable entry snapshots separately from later resolution events. Derive current case state as a projection. Represent benchmark maturity as an explicit evaluator-derived field based on entry time, configured horizon, required market-data coverage and evaluator version; do not overload a resolver timestamp. Require an actual scorer build/config identifier where available; otherwise use scorer_version=Unknown with a provenance-quality flag rather than asserting v3-mtf-aligned from prefix alone.
+
+
+## Integration-test scope — important limitation
+
+The source test supabase/tests/research_knowledge_archive.integration.sql is explicitly an ephemeral PostgreSQL fixture; it does not validate production rollback or export. It tests the refresh function by asserting that a resolved V3 case has maturity_at = resolved_at, so the test codifies the current resolver-timestamp semantics rather than an independently calculated 72-hour benchmark maturity. It also tests archive fail-closed behavior when capture fails and source deletion is disabled, then deliberately enables both flags in the disposable test database to exercise the delete path.
+
+The test does not establish that source created_at is a true feature-availability timestamp, that initial entry evidence remains immutable across source updates, that all source application callers are decoupled, or that a production export can be restored. Any replacement/rollback test suite should add separate assertions for unknown availability, outcome-event append-only behavior, evaluator-derived horizon maturity, grants/RLS, cron definitions, and application fail-open behavior when archive objects are absent.
