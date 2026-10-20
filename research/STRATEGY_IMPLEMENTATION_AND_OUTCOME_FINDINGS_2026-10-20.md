@@ -499,3 +499,31 @@ The normal pipeline generator `src/lib/council-learning.ts` computes `pnl_pct`, 
 Sources: [pipeline Council generator](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/council-learning.ts), [Council lessons Edge Function](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/council-lessons/index.ts).
 
 Research rule: compare `pnl` versus `net_pnl` and lesson outcome/realized_pnl by `source_trade_id`; segment results by generation path where provenance exists. Do not retroactively rewrite lessons without an explicit, audited reconciliation.
+
+
+## Finding F-20261020-49 — The automatic knowledge refresh is not bounded to the 72-hour window for trade evidence/cases
+**Status:** source migration/code fact; runtime frequency and actual query cost not independently measured. **Confidence:** high for SQL behavior.
+
+The pipeline calls `refresh_research_knowledge_cases({p_lookback_hours:72})` in its normal post-mortem path, with an 8-second timeout. In the reviewed `20261020182000_research_archive_capture_gate.sql` definition, the 72-hour cutoff is applied to variant candidates, but the trade evidence insert scans `public.trades` without a time predicate; composite-signal evidence is selected by existence of any linked trade; and trade cases are upserted from all `public.trades`. Thus the parameter does not bound the trade/signal evidence and trade-case work. Repeated pipeline invocation can repeatedly inspect historical rows even when no rows change. This is separate from the user policy requiring manual refresh; deployment/RPC state remains unverified.
+
+Sources: [pipeline caller](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/pipeline.server.ts), [latest reviewed migration definition](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql).
+
+Research rule: do not execute the RPC as part of this transfer. Before any approved activation, bound each source by an explicit incremental cursor or cutoff, measure query plans and rows touched, and separately resolve the manual-versus-automatic refresh policy.
+
+## Finding F-20261020-50 — Later archive-gate migration redefines the refresh RPC after the V3-only batch fix
+**Status:** migration-chain source fact; applied production version unverified. **Confidence:** high for source ordering and definitions.
+
+Migration `20261020180000_research_knowledge_sync_batch_fix.sql` scopes variant materialization to `source_fingerprint like 'v3|%'`, explicitly leaving V2/Legacy untouched. The later migration `20261020182000_research_archive_capture_gate.sql` replaces the same `refresh_research_knowledge_cases(integer)` function but its variant candidate CTE no longer has that V3-only predicate; its case insert classifies V3, V2, Legacy and Unknown fingerprints. It still limits each variant candidate batch to 250, but can reintroduce non-V3 automatic materialization if this later migration is applied. This conflicts with the earlier fix's stated V3-only contract and source-state summary.
+
+Sources: [V3-only batch fix](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020180000_research_knowledge_sync_batch_fix.sql), [later migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql).
+
+Research rule: migration integration tests must assert the final installed function body, not only each migration independently. Verify the applied production migration version before claiming V3-only behavior; do not apply or amend migrations as part of this transfer.
+
+## Finding F-20261020-51 — Strategy auto-switch has paths that can choose a preset below the 25-resolved benchmark threshold
+**Status:** source-code fact; whether the function is enabled or invoked in production is unverified. **Confidence:** high.
+
+The V3 Variant Comparison panel labels a preset “best” only when it has at least 25 resolved cases and positive average PnL. In `strategy-auto-switch`, the ordinary deterministic `choose()` pool admits presets with only 8 resolved cases; the subsequent AI choice is validated against the allowed preset names, but not required to have 25 resolved cases. The no-qualified-positive-preset safety path also allows a demotion target with 8 resolved cases and positive average PnL. The confirmed-Bear demotion path separately accepts an alternative with 8 cases, positive average PnL and at least 40% win rate. Therefore the panel's sample rule is not a universal auto-switch eligibility rule.
+
+Sources: [auto-switch implementation](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/strategy-auto-switch/index.ts), [Variant Comparison panel](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx).
+
+Research rule: before any strategy-policy change, test every auto-switch branch against one explicit sample-size/positive-expectancy contract. Keep this as a source finding until deployment/configuration and invocation are verified; no production switch was performed.
