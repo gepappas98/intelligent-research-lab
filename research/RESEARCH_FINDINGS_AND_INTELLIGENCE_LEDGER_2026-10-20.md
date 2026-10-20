@@ -170,7 +170,7 @@ Read-only source-code audit of `pixel-perfect-pixels` main confirmed that `marke
 
 
 ### Production candle-integrity fix — 2026-10-20
-- **Confirmed and fixed prospectively:** collector v3 filters unfinished Binance candles before upsert; early-entry variants v7 and baseline regime v13 independently reject rows unless `close_time < evaluationAt` and `captured_at <= evaluationAt`, with in-memory guards.
+- **Confirmed and fixed prospectively:** collector v3 filters unfinished Binance candles before upsert; early-entry variants v8 and baseline regime v13 independently reject rows unless `close_time < evaluationAt` and `captured_at <= evaluationAt`, with in-memory guards.
 - **Verification:** deployed definitions re-read and predicates confirmed; 13/13 code-level boundary/source assertions passed. Existing cron schedules remain unchanged.
 - **Historical caveat:** decisions/trades do not retain an immutable candle identity and full timestamps, so exact contaminated counts are unknown. Audit population: 19 A_CURRENT PAPER_OPEN decisions / 19 baseline paper entries (11 closed, 8 open); B and C each have 838 NO_ENTRY decisions. This is not evidence all were contaminated. No historical rows/outcomes were modified.
-- **Evidence:** `pixel-perfect-pixels` commits `e0d76fa`, `c60d0dd`, `a7fe433`, `6ccf2ef`; detailed record F-20261020-73 in the strategy findings file.
+- **Evidence:** `pixel-perfect-pixels` commits `e0d76fa`, `c60d0dd`, `a7fe433`, `0617f1e`, `1e71f9c`, `09e7667`; detailed record F-20261020-73 in the strategy findings file.
