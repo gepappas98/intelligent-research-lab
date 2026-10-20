@@ -176,7 +176,7 @@ Read-only source-code audit of `pixel-perfect-pixels` main confirmed that `marke
 - **Evidence:** `pixel-perfect-pixels` commits `e0d76fa`, `c60d0dd`, `a7fe433`, `0617f1e`, `1e71f9c`, `09e7667`; detailed record F-20261020-73 in the strategy findings file.
 
 
-Baseline runtime caveat: the 16:00 orchestrator run stopped at `whale-watch` HTTP 500 before `early-entry-regime`. The 16:20 collector, variants, and orchestrator cron jobs subsequently all reported `succeeded`; variant decision metrics showed `evaluation_at=16:20:01.277Z`, `latest_close_time=16:09:59.999Z`, and `latest_captured_at=16:10:09.994Z`, satisfying both time bounds. No new `early_entry_regime` paper entries appeared after deployment. Direct baseline per-invocation candle telemetry remains pending; no manual call was made because the function can open paper positions.
+Baseline runtime verification update — 2026-10-20 16:32 UTC: the 16:00 orchestrator run stopped at `whale-watch` HTTP 500 before `early-entry-regime`. Successful 16:20 and 16:30 cycles subsequently invoked the baseline function with HTTP 200, `status=observed`, zero opened entries, and no entry errors. At 16:30 the evaluation time was 16:30:22.034Z, latest candle close 16:29:59.999Z and capture 16:30:11.256Z; both time bounds passed. `breadth_improving=false` and `whale_turning_positive=false` explain the no-entry result under unchanged gates. The earlier pending direct-runtime-telemetry item is resolved; no manual invocation was used.
 
 
 ## Early-entry variant scheduler race and offset — 2026-10-20 16:30 UTC
@@ -187,3 +187,6 @@ Production-only schedule correction: job 21 `early-entry-variants` changed from 
 
 ### Scheduler-offset runtime verification — 2026-10-20 16:31 UTC
 The first offset variant run succeeded (job 21 at 16:31:00.396Z). All A/B/C decisions used `evaluation_at=16:31:00.661Z`, candle close `16:29:59.999Z`, and capture `16:30:11.256Z`: close lag 1.01 minutes and capture age 0.82 minutes, versus ~10.02 and ~9.85 minutes on the previous aligned run. All three were `NO_ENTRY`; no trade gate was changed. Job 21 active schedule is `1-59/10 * * * *`; collector job 19 remains `*/10 * * * *`. Post-deploy integrity totals now 426 5m / 217 15m rows with zero captured before close. This is one successful post-offset cycle; continue passive monitoring.
+
+
+Follow-up live audit — 2026-10-20 16:32 UTC: the 16:31 variant cycle succeeded and reduced the newest selected candle's close lag to 1.01 minutes / capture age to 0.82 minutes. The 16:30 baseline cycle also passed both timestamp bounds and had no gate-qualified entry. Post-deploy candle integrity aggregate: 643 rows across 5m/15m; zero captured before close and zero still unclosed at query time. No post-deploy early-entry paper trades found. First offset cycle passed; keep monitoring without changing gates.
