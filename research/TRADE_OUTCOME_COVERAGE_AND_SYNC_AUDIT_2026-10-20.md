@@ -66,3 +66,8 @@ This is a candidate historical hypothesis: the observed V2 variants performed po
 ## Change status
 
 This is a research record of read-only production checks. No production row, outcome, archive flag, migration, cron job, strategy weight, or Edge Function was changed by this audit. PR #134 is draft and not deployed.
+
+
+## Research-finding writer inventory
+
+A repository-wide code search for `research_findings` / `insert into public.research_findings` found the read path in `src/lib/research-knowledge.functions.ts`, the schema/indexes in the migration, and documentation/tests—but no production writer or candidate-finding generator. This matches the production count of zero findings. The next layer must be built deliberately: findings need evidence/case IDs, cohort/scorer version, sample eligibility, maturity checks, explicit limitations and reproduction steps. Do not write “validated” findings directly from the aggregate table above, and do not make the generator a scorer or entry-gate dependency.
