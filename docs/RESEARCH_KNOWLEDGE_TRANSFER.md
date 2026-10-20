@@ -231,3 +231,21 @@ Read-only inspection of source commit 07a1dabea37a437214271e126113ef35f0de4bca (
 - calculateConfiguredShadow() still contains the older multiplicative 1.3/0.7 formula, but current call-site inspection shows it is used as a diagnostic shadow comparator. It is not the ruleBasedRecommendation() production base score and should not be confused with the shared V3 scorer.
 
 **Conclusion:** current live base scoring and V3 variant scoring are aligned on the directional MTF formula and weights. Historical V2 is intentionally incompatible because its variant technical component used only 4h. The old diagnostic shadow formula is a separate comparator. This code-level result does not certify live deployment/version parity or historical outcomes; verify deployed Edge Function versions and record-level fingerprints before drawing performance conclusions. No code or data was changed during this analysis.
+
+## 12. Live deployment and V3 cohort snapshot — 2026-10-20 05:35 UTC
+
+Read-only inspection of the canonical Supabase Edge Function registry confirmed:
+
+- `signal-combiner`: ACTIVE, version 41, updated 2026-10-19 16:54:22 UTC. Its deployed source imports the shared MTF helper and writes the `v3|...` variant fingerprint.
+- `strategy-auto-switch`: ACTIVE, version 11, updated 2026-10-19 16:54:29 UTC. Its deployed source reads `get_variant_performance_v3(7)`, with a source-table fallback filtered to the V3 fingerprint.
+- `variant-resolver`: ACTIVE, version 8, updated 2026-10-15 05:08:42 UTC. It has a resolver start cutoff of 2026-10-06 09:57 UTC and a 72-hour expiry trigger. The resolver is outcome evaluation, not the MTF scoring implementation.
+
+A read-only SQL snapshot of `strategy_variant_signals` as of 2026-10-20 05:35 UTC found, across the V3 fingerprint cohort:
+- 1,345 rows total, all BUY variants; 1,306 still open and 39 terminal with non-null resolver timestamps/PnL.
+- Those 39 resolved rows comprise 31 wins and 8 losses; no expired rows in this snapshot.
+- By preset: accumulation 12 resolved (10 wins, 2 losses), whale-focused 15 (9 wins, 6 losses), and each of ai-driven, balanced, conservative, smc-reversal and vwap-momentum has 2 wins; chart-trader has 0 resolved. All other preset samples are still very small.
+- The deployed auto-switch code requires at least 25 resolved rows and positive average PnL for a preset to qualify as a fully supported candidate. No V3 preset currently reaches 25 resolved rows. The 39 total observations across different presets must not be treated as 39 independent samples for one preset or as validated strategy edge.
+
+The database RPC `get_variant_performance_v3(7)` and a raw source-table aggregation returned identical per-preset results in this read-only comparison. Thus, as of this timestamp, the canonical database does not have zero resolved V3 rows; a UI still showing zero would require checking its refresh time, selected cohort, deployed frontend build and effective database target rather than assuming the RPC or historical records are empty.
+
+These are early, in-sample operational observations, not an endorsement of any strategy. No strategy switch was triggered by this audit; no Edge Function, strategy setting, row or deployment was changed.
