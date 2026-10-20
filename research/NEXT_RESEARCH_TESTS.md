@@ -108,7 +108,7 @@ Run these in order when the user requests a new research batch. This is a conclu
 
 71. **Retention-to-storage alignment:** compare the proposed nine-table archive scope with the largest live table-plus-index consumers; identify growth/retention controls for the largest tables before any cleanup proposal. No archive enablement or source deletion.
 
-72. **Early-entry candle lineage / look-ahead audit:** inspect the exact scorer/collector code and `metrics.candle_symbols`; prove for each 5m/15m input whether the candle was closed and available at decision time. The first read-only join was inconclusive because decision rows do not provide a normalized source-candle ID/time tuple. Do not label this a confirmed defect or clean result until lineage is demonstrated. No production changes.
+72. **Early-entry candle lineage / look-ahead audit — completed 2026-10-20:** source inspection and live capture-time evidence confirmed that the collector had persisted in-progress 5m/15m candles and both early-entry evaluators lacked an upper timestamp bound. Exact historical contamination remains unprovable because pre-fix decisions lack immutable source-candle IDs/timestamps. See F-20261020-72 and production remediation/test 73; no retrospective trade relabeling.
 
 73. **Reject unfinished candles in production early-entry paths — deployed 2026-10-20**
    - Collector rejects `close_time >= capturedAt` before upsert.
