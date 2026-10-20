@@ -795,3 +795,9 @@ Added `public.early_entry_candle_lineage` with one normalized row per evaluation
 
 ### Verification still required
 Wait for normal scheduled executions (do not invoke either evaluator manually because they can open paper positions). Confirm new lineage rows appear for both function names, each evaluation ID matches the corresponding metrics/gate diagnostics, all stored rows satisfy the timestamp check, and `candle_lineage_write_status=written`. Verify no extra entries or strategy parameter changes. The CI run for the latest main commit has not yet been independently confirmed by the available workflow-run lookup.
+
+
+### F-20261020-76 first runtime check — variants passed, baseline pending
+At 16:41:01.871 UTC, `early-entry-variants v10` wrote one evaluation ID `d00c0701-88f0-4a00-b9eb-d4f757b71b00` shared by A/B/C, with `candle_lineage_write_status=written`. The normalized table contains 52 source-candle rows for 52 symbols. The recorded evaluation time is 16:41:01.871Z; closes range from 16:29:59.999Z to 16:39:59.999Z; latest capture is 16:40:11.929Z. All 52 rows satisfy the database time constraints, and the decision metadata IDs match the lineage evaluation ID.
+
+A baseline run at 16:40:23.444Z used the pre-final deployment during the schema/code rollout and recorded `candle_lineage_write_status=failed` because that deployed revision did not yet send the newly required `evaluation_at` column. This invocation completed with HTTP 200 and zero entries; it did not alter trades or gates. `early-entry-regime v15` now sends `evaluation_at`; verification is pending on the next normal orchestrator cycle. Do not invoke manually.
