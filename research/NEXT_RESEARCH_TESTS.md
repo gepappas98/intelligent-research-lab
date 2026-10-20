@@ -97,3 +97,6 @@ Run these in order when the user requests a new research batch. This is a conclu
 64. **Recorded rejection taxonomy:** stratify recorded audit events by stage/reason and compare with uncovered-signal counts; report micro-data freshness, confidence, per-symbol-cap and sideways-gate counts without changing any production threshold.
 
 65. **Archive timestamp provenance:** compare `last_archive_at` with the latest `captured_at` for retention-source tables only; ensure general trade/variant evidence cannot make an empty archive appear recently archived.
+
+66. **Storage guard reconciliation:** compare `private.storage_capacity_guard_state.paused_jobs` with actual `cron.job.active` values and test whether a latched guard can re-pause reactivated jobs. Read-only first; no cron/guard changes without explicit approval.
+67. **Storage footprint prioritization:** trend `pg_database_size` and table-plus-index sizes for shadow diagnostics, composite signals, variants, pipeline runs, whale alerts, candles and accumulation observations. Use exact sizes, not stale tuple estimates; no deletion.
