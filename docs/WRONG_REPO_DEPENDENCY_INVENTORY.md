@@ -120,3 +120,15 @@ The test does not establish that source created_at is a true feature-availabilit
 The pure unit suite src/lib/_tests_/research-knowledge.test.ts verifies ordering predicates, unknown availability rejection, cohort separation, terminal outcome checks and evidence linkage. However, it uses hand-authored Evidence objects and cannot detect that the production reader/SQL writer fabricate an availability timestamp by copying created_at. It proves the validator's logic for supplied timestamps, not the provenance of timestamps from the database. A future regression suite should test source-mapper behavior directly: if a source has no independently verified availability field, mapped available_at must remain null or carry an explicit inferred/ambiguous quality status, and strict eligibility must fail closed.
 
 The UI currently renders query errors as “Research evidence unavailable” and lists source availability issues; missing archive-table reads may instead produce a partial snapshot with null table count and an issue. The decoupling test must verify this partial-data state is clearly labeled and cannot be mistaken for complete history or zero observations.
+
+
+## Follow-up migration review — cleanup status payload consistency
+
+A static inspection of `supabase/migrations/20261020182000_research_archive_capture_gate.sql` found duplicate JSON keys in the early-return payloads of `cleanup_research_data`:
+
+- The archive-paused return includes `archive_only` twice (`true`, then `false`) and repeats `archive_enabled` / `delete_enabled`.
+- The archive-enabled-but-delete-locked return also repeats `delete_enabled` and `archive_only` with contradictory values.
+
+PostgreSQL builds a JSONB object from these key/value pairs; duplicate-key handling can cause the later value to override the earlier one. That makes the diagnostic payload misleading even though these branches return before the source DELETE statements. This is a **code-level observability defect**, not evidence that deletion occurred and not a reason to change the live function ad hoc.
+
+Before any rollback or future cleanup maintenance, correct the payload in a separately reviewed migration and test exact returned JSON for both locked states in disposable PostgreSQL. Until then, rely on the actual live control row and deployed function definition—not `archive_only` in the returned JSON alone—to assess safety. No production function was invoked or changed during this inspection.
