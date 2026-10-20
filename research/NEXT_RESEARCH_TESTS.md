@@ -131,3 +131,6 @@ Baseline runtime follow-up — completed 2026-10-20 16:32 UTC: successful orches
 
 
 Runtime update at 16:42 UTC: variants lineage passed on the first scheduled post-deploy run (52 rows, 52 symbols, one shared evaluation ID across A/B/C, zero invalid timestamps). Baseline's 16:40 call used the pre-final revision during rollout and wrote no lineage because `evaluation_at` was missing from its payload; v15 now includes the field. Verify the next scheduled baseline cycle, without manual invocation.
+
+
+Storage follow-up: migration `20261020171000_early_entry_lineage_storage_trim.sql` removed unused direct decision/trade columns and a redundant evaluation index; the evaluation ID remains linked through decision metrics and trade/observation metadata. Existing lineage rows were preserved; total table footprint dropped from 120 kB to 96 kB. Reconfirm the lineage writer still works on the next scheduled baseline run.
