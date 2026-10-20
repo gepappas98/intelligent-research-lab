@@ -209,3 +209,6 @@ Storage efficiency follow-up at 16:44 UTC: removed unused direct decision/trade 
 
 
 Access hardening: explicit RLS policy now grants table policy access only to `service_role`; anon/authenticated still have no SELECT privilege. Supabase security advisor returned no finding for this table. Migration `20261020171500_early_entry_lineage_service_role_policy.sql`. The symbol/time index is intentionally retained for future audits despite being currently unused on the new table.
+
+
+Defensive timestamp hardening at 16:48 UTC: historical latest-per-symbol rows include some `captured_at < close_time` records, but the active 15-minute input window had zero such rows for both timeframes at audit time. Both evaluators now reject pre-close-captured records in memory as a third temporal condition; current valid rows and strategy gates are unchanged. Deployed versions variants v11 / baseline v16. No historical rewrite.
