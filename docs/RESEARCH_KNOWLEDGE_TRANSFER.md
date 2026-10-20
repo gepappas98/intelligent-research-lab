@@ -150,3 +150,10 @@ This snapshot was taken after closing wrong-repository PR #133. It is for incide
 ### Current retention preflight (read-only, 2026-10-20)
 
 The deployed `get_research_archive_status(72,168)` returned `status=incomplete`: **29,788 eligible source records, 0 archived, 29,788 missing evidence** across nine retention-source tables. By table: asset news 362; flow snapshots 9,360; whale snapshots 1,397; price snapshots 9,360; whale transitions 537; event-flow transmissions 1; sentiment snapshots 7,698; whale-shock followups 536; whale transition context 537. The result reports both archive and source-delete controls disabled. This is why enabling retention or deleting archive tables now would be unsafe. The reported `last_archive_at` is not evidence that these retention-source records were archived; the current evidence rows are concentrated in trades/signals/variants instead.
+
+
+### Superseding recheck (2026-10-20, later read-only query)
+
+A later query returned 504,605,843 bytes (481 MB), 3,019 evidence rows, 3,000 cases, 0 findings, and 1 archive-control row. The latest archive preflight returned 29,790 eligible/missing source records (not 29,788): whale-shock followups now report 538 rows. Both archive and source-delete controls remain disabled.
+
+The live policy inventory also showed permissive SELECT policies (`USING (true)`) for `anon` and `authenticated` on `research_evidence`, `research_cases`, and `research_findings`. This is a least-privilege review item. No policy was changed during this audit; policy changes should be reviewed separately from destructive rollback.
