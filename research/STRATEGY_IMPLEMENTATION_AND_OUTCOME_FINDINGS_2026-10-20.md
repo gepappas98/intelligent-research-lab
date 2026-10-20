@@ -555,3 +555,22 @@ The research-case refresh sets trade-case `outcome` to `coalesce(t.status,'unkno
 Source: [research-case refresh migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql).
 
 Research rule: keep lifecycle status and economic outcome as distinct dimensions. For trades, derive win/loss/breakeven only after validating PnL basis and missing values; never silently combine the current `outcome` field across source tables.
+
+
+## Finding F-20261020-55 — Early Entry B/C use a +6% take-profit, not the common +4% benchmark
+**Status:** source-code fact; this may be an intentional experiment setting. **Confidence:** high.
+
+The direct paper-trade insert in `early-entry-variants` sets `take_profit = entry_price * 1.06`, `stop_loss = entry_price * 0.97`, and notional $1,000. This differs from the V3 benchmark contract of TP +4% / SL −3% / 72-hour maximum hold, and from Event→Flow's +4% / −3% setup. Trade-exit logic applies configured max-hold/stale-exit settings to open paper trades, but the B/C entry function does not pin or snapshot those exit settings on each entry. Thus realized outcomes can reflect a different TP and whatever exit settings are active at close, rather than the fixed V3 benchmark. This is not automatically a defect; it must be treated as a separate experimental policy unless deliberate parity is confirmed.
+
+Sources: [Early Entry B/C paper opener](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/early-entry-variants/index.ts), [shared paper exit policy](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/_shared/trade-exit.ts).
+
+Research rule: store/derive the actual TP, SL, max-hold and stale-exit policy per entry cohort; never pool B/C outcomes with V3 benchmark results as if exit assumptions were identical.
+
+## Finding F-20261020-56 — V3 performance RPC counts terminal outcome labels without requiring a resolution timestamp
+**Status:** SQL contract fact; inconsistent-row count unknown. **Confidence:** high.
+
+`get_variant_performance_v3` counts `win`, `loss`, and `expired` outcomes as resolved solely from the `outcome` value; it does not require `resolved_at IS NOT NULL`. The research-case materializer, in contrast, sets `maturity_at` only when one of those terminal labels and a non-null `resolved_at` are both present. If any inconsistent rows exist, dashboard/RPC aggregates can treat them as resolved while the knowledge-case maturity contract does not. Normal resolver updates set outcome and resolved_at together, so this is an invariant check rather than evidence of current bad rows.
+
+Source: [V3 benchmark RPC migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql).
+
+Research rule: count terminal-labelled V3 rows with null `resolved_at` and non-terminal rows with non-null `resolved_at`; report any mismatches separately before trusting cross-surface resolved counts.
