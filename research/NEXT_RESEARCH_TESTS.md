@@ -65,3 +65,8 @@ Run these in order when the user requests a new research batch. This is a conclu
 41. **CMC active-position preflight coverage:** compare all open CMC paper trades against the newest-1,000 trade query and inspect same-symbol opens by invocation time. Read-only; don't infer duplicates from source alone.
 
 42. **Manual-refresh policy parity:** verify whether the deployed pipeline includes the post-mortem `refresh_research_knowledge_cases(72)` call and whether the RPC is installed; record invocation frequency and side effects without calling it. Preserve the manual-refresh policy; no cron, deployment, or production changes.
+
+43. **Archive state and materialization parity:** compare the source-reported 2026-10-20 controls/counts with a separately authorized live read after user-controlled Lovable sync. Keep `allow_archive=false` and `allow_source_delete=false`; no cleanup invocation.
+44. **Event→Flow decision-history sufficiency:** verify whether any append-only decision source exists; compare current per-asset upsert state with available historical snapshots. Do not infer past gate frequencies from latest-state rows.
+45. **Council lesson idempotency:** group `council_lessons` by `source_trade_id`, compare to `trades.post_mortem_generated`, and separately count duplicate lessons and flag-update inconsistencies. Read-only.
+46. **Research knowledge sample coverage:** for each table read by `readKnowledge()`, compare exact count with returned sample count (250 default; 100 for evidence/findings), report truncation and errors, and keep bounded snapshots separate from full-history claims.
