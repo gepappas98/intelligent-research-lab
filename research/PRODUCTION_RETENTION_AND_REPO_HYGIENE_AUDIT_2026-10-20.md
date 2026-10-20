@@ -75,3 +75,27 @@ Other individual timeout failures appeared for whale-flow/accumulation RPCs and 
 The upstream service times and 57014 codes support timeout/cancellation as the common observed failure mode, but do not yet identify whether the root cause is an expensive query plan, lock contention, resource saturation, or a client retry storm. The 61 failures on archive-status/resource-stat RPCs are especially relevant because they can make the dashboard appear broken while the archive safety controls themselves remain closed. Next diagnostic step: inspect the definitions and query plans of these read-only RPCs, their indexes and table sizes; correlate Postgres logs for lock/statement-timeout details. Avoid changing timeouts or dropping indexes/data as a first response.
 
 The trade-position-watchdog function logs in the inspected window reported `status=ok`, `open_positions=37` at 17:14 UTC, `price_unavailable=0`, `errors=[]`, and `auto_close_live=false`. One preceding invocation logged one paper take-profit close. This supports that the watchdog itself was operating at those instants; it does not establish overall pipeline health.
+
+
+## Planner statistics, timeout cause and archive gap — production verified
+Postgres logs explicitly report `canceling statement due to statement timeout` with SQLSTATE `57014`. Role/database settings show `statement_timeout=8s` for `authenticator` and `authenticated` (and 3s for `anon`); the global `pg_settings` value of 120s does not override those role-specific settings. This explains the repeated REST 500s. Do not raise role timeouts as a first fix: expensive reads and query shape should be corrected first.
+
+Before maintenance, planner statistics were materially stale: for example `strategy_variant_signals` was estimated at 415 live rows despite a 43 MB total relation size and 2,140 modifications since analyze; snapshot tables were estimated at roughly 1,000 rows despite tens of thousands of actual rows. A read-only `pg_stat_user_tables` check showed no previous analyze/autoanalyze for several frequently queried tables. A non-destructive manual `ANALYZE` was then run on `strategy_variant_signals`, `research_evidence`, the four raw snapshot/news tables, and the whale-flow/event-flow tables. Verification immediately afterwards showed corrected estimates: `strategy_variant_signals` 68,082 rows, `asset_sentiment_snapshots` 31,868, `asset_price_snapshots` 39,597, `asset_flow_snapshots` 39,600, `whale_flow_snapshots` 11,198, and `research_evidence` 3,019. `n_mod_since_analyze` was reset to zero for these analyzed tables. This is a statistics refresh only; no research rows were inserted, updated, or deleted.
+
+A privileged, read-only invocation of `get_system_resource_stats()` and `get_research_archive_status(72,168)` completed after the statistics refresh. Current returned resource snapshot:
+- Database size: 541,543,571 bytes (516 MB).
+- Reported 24-hour growth: 76.57 MB.
+- Connections: 20 of max 60; cache hit: 99.96%.
+- V3 benchmark source rows: 68,082.
+
+The archive-status RPC returned `incomplete`, with 43,558 eligible source rows and 0 archived matches across its nine configured retention source tables. The 3,019 rows in `research_evidence` are currently only for `strategy_variant_signals` (2,801), `trades` (199), and `composite_signals` (19); none are evidence records for the raw snapshot/news and whale/event-flow tables required by that retention check. This is a material gap, not permission to turn on archiving or source deletion. Keep both control flags false.
+
+The database is above the earlier 480 MB warning threshold, while `storage-capacity-watchdog` is inactive. Its guard function and intended effect must be reviewed before any reactivation; do not run it blindly. The 76.57 MB/day figure is a single returned 24-hour comparison, so recheck after the next storage sample rather than extrapolating indefinitely.
+
+## Follow-up after ANALYZE
+The 8-second role timeout and stale planner statistics are now confirmed, and statistics have been refreshed. The log window immediately after ANALYZE still contained two 500s for archive-status and V3 benchmark at 17:17:08/17:17:04 UTC; those requests may have started before ANALYZE. Recheck new REST failures after the browser has made fresh requests. If timeouts persist, prioritize:
+1. Rewrite `get_research_archive_status` to aggregate source counts once and avoid repeating the full required-source union, while preserving exact archive matching and safe controls.
+2. Add/review suitable time-leading indexes for the retention predicates and a V3-oriented index only after examining `EXPLAIN` plans.
+3. Replace broad `SELECT *` / exact count requests for `strategy_variant_signals` and snapshot tables with narrow projections and bounded pagination in the frontend.
+4. Investigate why autovacuum/analyze had not kept statistics current, and why the capacity watchdog is inactive.
+Do not enable archive/delete flags, drop historical tables, or reset production while this remains unresolved.
