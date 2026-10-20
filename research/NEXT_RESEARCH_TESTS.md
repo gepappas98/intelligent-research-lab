@@ -70,3 +70,6 @@ Run these in order when the user requests a new research batch. This is a conclu
 44. **Event→Flow decision-history sufficiency:** verify whether any append-only decision source exists; compare current per-asset upsert state with available historical snapshots. Do not infer past gate frequencies from latest-state rows.
 45. **Council lesson idempotency:** group `council_lessons` by `source_trade_id`, compare to `trades.post_mortem_generated`, and separately count duplicate lessons and flag-update inconsistencies. Read-only.
 46. **Research knowledge sample coverage:** for each table read by `readKnowledge()`, compare exact count with returned sample count (250 default; 100 for evidence/findings), report truncation and errors, and keep bounded snapshots separate from full-history claims.
+
+47. **Closed-candle taker imbalance:** compare Early Entry's current latest-per-symbol 5m candle selection with a closed-candle-only selection (`close_time <= observed_at`); quantify incomplete-candle contribution and score differences without changing production gates.
+48. **Event→Flow global input coverage:** measure eligible RSS/flow/price rows and distinct assets against limits 100/200/200; quantify assets omitted from the latest-per-asset maps. Read-only.
