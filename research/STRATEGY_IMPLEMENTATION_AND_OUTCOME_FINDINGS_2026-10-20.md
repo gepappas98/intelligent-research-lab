@@ -691,3 +691,18 @@ Research rule: map per-table growth, reproducibility, strategy/evidence value, a
 The live `early_entry_variant_decisions` table records per-variant decisions and a JSON metrics object. Recent records expose `taker_buy_imbalance_5m`, `taker_buy_z`, `candle_symbols`, `breadth_1h`, `whale_delta`, `whale_net`, `whale_turn`, `regime_at_signal`, and `transition_sequence_distribution_neutral_accumulation`. However, the decision record does not expose a normalized source-candle ID or an explicit per-timeframe candle `open_time/close_time/captured_at` tuple. A direct time-window join to the latest 5m candle rows did not establish a valid one-to-one candle lineage, so it cannot prove that every input candle was closed when each decision was made.
 
 Research rule: treat candle-close/look-ahead status as **unverified**, not as a confirmed defect or a clean bill of health. Next inspect the exact early-entry collector/scorer code path and the meaning/contents of `metrics.candle_symbols`; if lineage is still unavailable, add source timestamps/closed-candle eligibility to research telemetry before drawing a conclusion. No production code, schema, cron, or strategy was changed.
+
+
+## Finding F-20261020-72 — Early-entry evaluators can consume an unfinished 5m candle
+**Status:** confirmed by source-code path inspection plus live read-only evidence, 2026-10-20 ~15:46 UTC. **Confidence:** high.
+
+Source path in `gepappas98/pixel-perfect-pixels` main:
+- `supabase/functions/market-candle-collector/index.ts` fetches the last three Binance Spot klines and maps/upserts every returned row, including the current kline; it does not filter rows by `close_time <= captured_at` or the current time before upsert.
+- `supabase/functions/early-entry-variants/index.ts` selects 5m candles with `close_time >= now - 15 minutes`, orders descending by `close_time`, and takes the first row per symbol. There is no upper-bound predicate `close_time <= now`, so a forming candle with a future close time can win the “latest” selection. Its taker-buy quote volume feeds `taker_buy_imbalance_5m`, B/C eligibility, and candidate ranking/selection.
+- `supabase/functions/early-entry-regime/index.ts` uses the same lower-bound-only pattern for 5m candles; taker-buy imbalance feeds the score/diagnostics and candidate prioritization.
+
+Live evidence from the canonical source database: among candle rows captured in the preceding 30 minutes, 55 5m rows and 56 15m rows had `close_time > captured_at`, directly confirming that the collector persisted candles while they were still forming. At the audit instant, zero rows had `close_time > now()` because the newest candle interval had since elapsed; this does not negate the capture-time evidence. The earlier decision-to-candle join was inconclusive because decision telemetry does not retain a candle ID or its timestamps.
+
+Impact: intrabar volume/taker-buy fields can change before close and be treated as if they were final. This creates a confirmed temporal-integrity/look-ahead risk in the early-entry evidence, though this audit does not quantify how many historical decisions or trades were affected.
+
+Recommended corrective design (not applied): filter upstream collector results to closed candles only (`close_time <= captured_at`, with a conservative completion buffer if needed) and enforce `close_time <= evaluation_time` in both evaluators; record evaluation time and per-timeframe source candle open/close/capture timestamps in decision metrics. Add regression tests for forming-candle rejection and boundary conditions. No production code, database rows, schema, cron, strategy, or deployment was changed in this audit.
