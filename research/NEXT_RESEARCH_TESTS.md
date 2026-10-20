@@ -102,3 +102,6 @@ Run these in order when the user requests a new research batch. This is a conclu
 67. **Storage footprint prioritization:** trend `pg_database_size` and table-plus-index sizes for shadow diagnostics, composite signals, variants, pipeline runs, whale alerts, candles and accumulation observations. Use exact sizes, not stale tuple estimates; no deletion.
 
 68. **Storage watchdog re-entry:** inspect the guard's latch/reset policy and cron activation history; prove how a later threshold re-crossing is handled after a prior trigger and database shrink. Read-only/ephemeral simulation only; no production scheduling changes.
+
+69. **Repeated-BUY outcome maturity:** reconcile 2,729 ledger rows by entry cohort and resolution state; keep 2,694 null-PnL rows unresolved and report resolved-only results separately. Do not impute missing PnL.
+70. **Storage driver exact counts:** compare exact row counts, table-plus-index sizes and growth trends for diagnostics, composite signals, variants, pipeline runs, whale alerts, candles and accumulation observations; treat `pg_stat_user_tables` tuple estimates as approximate only.
