@@ -128,3 +128,6 @@ Baseline runtime follow-up — completed 2026-10-20 16:32 UTC: successful orches
 
 
 76. **Normalized candle-lineage runtime check — pending after deploy (2026-10-20):** schema `public.early_entry_candle_lineage` is live; `early-entry-variants v9` and `early-entry-regime v14` are deployed. On scheduled runs only, confirm lineage rows are written with unique `evaluation_id`, correct function name, symbol, timeframe, open/close/captured timestamps and source; compare each evaluation ID to `metrics.candle_evaluation_id` or `gate_diagnostics.candle_evaluation_id`; ensure `candle_lineage_write_status=written` and no rows violate `open_time < close_time <= captured_at <= evaluation_at`. Do not manually invoke evaluators; no historical backfill or reclassification.
+
+
+Runtime update at 16:42 UTC: variants lineage passed on the first scheduled post-deploy run (52 rows, 52 symbols, one shared evaluation ID across A/B/C, zero invalid timestamps). Baseline's 16:40 call used the pre-final revision during rollout and wrote no lineage because `evaluation_at` was missing from its payload; v15 now includes the field. Verify the next scheduled baseline cycle, without manual invocation.
