@@ -706,3 +706,31 @@ Live evidence from the canonical source database: among candle rows captured in 
 Impact: intrabar volume/taker-buy fields can change before close and be treated as if they were final. This creates a confirmed temporal-integrity/look-ahead risk in the early-entry evidence, though this audit does not quantify how many historical decisions or trades were affected.
 
 Recommended corrective design (not applied): filter upstream collector results to closed candles only (`close_time <= captured_at`, with a conservative completion buffer if needed) and enforce `close_time <= evaluation_time` in both evaluators; record evaluation time and per-timeframe source candle open/close/capture timestamps in decision metrics. Add regression tests for forming-candle rejection and boundary conditions. No production code, database rows, schema, cron, strategy, or deployment was changed in this audit.
+
+
+## F-20261020-73 — Production fix deployed: reject unfinished early-entry candles (2026-10-20)
+
+**Status:** Production Edge Functions deployed; source committed to `gepappas98/pixel-perfect-pixels/main`; code-level regression checks passed (13/13).
+
+### Production change
+- `market-candle-collector` deployed as version 3: Binance kline rows are filtered before upsert with strict `close_time < capturedAt`. An open candle and a candle exactly at the close-time boundary are not written by this collector.
+- `early-entry-variants` deployed as version 7: the 5m candle query requires `close_time < evaluationAt` and `captured_at <= evaluationAt`; a second in-memory timestamp guard repeats those checks before selecting the latest row per symbol.
+- `early-entry-regime` deployed as version 13: the 5m candle query applies the same strict bounds and repeats them in memory.
+- The evaluators now record evaluation time and latest selected candle close/capture timestamps in their diagnostic metrics. No other strategy gates, thresholds, entry sizing, exits, or cron schedules were changed. No exchange/live orders are enabled.
+
+### Verification
+- Re-read the deployed function definitions: versions 3, 7, and 13 are ACTIVE and contain the expected timestamp predicates.
+- Code-level regression assertions: 13/13 passed, covering exact timestamp equality, a just-closed candle, delayed collection available before evaluation, a capture that happens after evaluation, open candles, and the production query/source guards.
+- The two active cron jobs remain on their existing `*/10 * * * *` schedule (`market-candle-collector`, `early-entry-variants`). No schedule changes were made.
+- Immediately after deployment, the database still contained rows collected before this fix (`captured_at < close_time`): in the preceding two hours, 60 rows each on 5m and 15m matched that condition; 52 5m and 55 15m rows had `close_time >= now()`. These are pre-deployment persisted rows, not proof of post-deployment collector writes. The downstream evaluators reject them by both SQL and in-memory bounds. A subsequent scheduled collector run is needed to refresh closed rows; this patch does not delete or rewrite historical rows.
+
+### Historical impact audit (do not relabel trades)
+The current telemetry cannot link a decision to a specific candle `open_time`, `close_time`, `captured_at`, or immutable source-row ID. Therefore an exact count of decisions/entries that actually consumed unfinished candles **cannot be proven from retained evidence**; do not mark any historical trade invalid or change outcomes.
+
+Observed historical population at audit time:
+- `early_entry_variant_decisions`: A_CURRENT 19 PAPER_OPEN decisions; B_EARLY_REVERSAL 838 NO_ENTRY; C_ADAPTIVE_REVERSAL 838 NO_ENTRY; A_CURRENT 833 NO_ENTRY.
+- `trades` with `mode='paper'` and `entry_source='early_entry_regime'`: 19 total, 11 closed and 8 open.
+- These are the population to investigate, **not** a claim that all 19 entries or all decisions were affected. Exact contaminated count remains unknown.
+- No historical trades, decision rows, source candles, PnL, or statuses were changed.
+
+Source commits on `pixel-perfect-pixels/main`: `e0d76fa84bb618b8b05da12edfdebf4b4bed3fd8` (collector), `c60d0dd282bcaf71c8a10c5be45ef8e8978a1e86` (variants), `a7fe43359650e06a57496fda504d7215a0c70145` (regime), and `6ccf2eff5c55fbb9c9319d864b7c579bd74c8c5b` (regression tests).
