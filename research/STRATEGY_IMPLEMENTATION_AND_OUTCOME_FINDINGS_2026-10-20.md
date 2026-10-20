@@ -777,3 +777,21 @@ The historical trade metadata check also found that all 19 pre-deploy `early_ent
 
 ### Gate explanation after the offset — 16:31 UTC
 The fresher 5m data also explains the variant outcome without changing any gate: 53 candle symbols were available, whale turn was true, but aggregate 5m taker-buy imbalance was `-0.1512` and 1h bullish breadth delta was `0` (`breadth_improving=false`). Thus B failed its positive-taker-buy and improving-breadth requirements; C failed its positive taker-buy / adaptive reversal conditions. A observed no baseline paper trade. These are single-window gate diagnostics, not a profitability conclusion.
+
+
+## F-20261020-76 — Normalized per-evaluation candle lineage (2026-10-20)
+
+**Status:** Schema applied and both Edge Functions deployed; scheduled runtime verification pending. This adds observability only and does not change entry gates.
+
+### Schema
+Added `public.early_entry_candle_lineage` with one normalized row per evaluation/source candle: `evaluation_id`, `function_name`, optional `variant`/decision/trade references, `symbol`, `timeframe`, `open_time`, `close_time`, `captured_at`, `source`, and `recorded_at`. The table stores identifiers/timestamps only, not OHLCV JSON. It has an evaluation index, symbol/time index, partial trade index, unique evaluation/source tuple, and a check enforcing `open_time < close_time <= captured_at`. RLS is enabled; anon/authenticated grants are revoked; service_role has table access. No historical backfill was attempted because the source candle identity was not recorded at decision time.
+
+### Code and deploy
+- Updated `early-entry-variants` and `early-entry-regime` to select candle `open_time` and `source`, persist normalized lineage rows, and include `candle_evaluation_id` plus `candle_lineage_write_status` in decision/gate metadata.
+- Lineage writes are best-effort and emit an error log/status on failure, rather than altering strategy eligibility or silently changing gates.
+- Production versions now: `early-entry-variants v9`; `early-entry-regime v14`.
+- Added static regression coverage to `supabase/functions/tests/candle-integrity.test.ts` for normalized lineage, source identity, and observable write failures.
+- Database migration source is `supabase/migrations/20261020170000_early_entry_candle_lineage.sql`; production schema migration succeeded.
+
+### Verification still required
+Wait for normal scheduled executions (do not invoke either evaluator manually because they can open paper positions). Confirm new lineage rows appear for both function names, each evaluation ID matches the corresponding metrics/gate diagnostics, all stored rows satisfy the timestamp check, and `candle_lineage_write_status=written`. Verify no extra entries or strategy parameter changes. The CI run for the latest main commit has not yet been independently confirmed by the available workflow-run lookup.
