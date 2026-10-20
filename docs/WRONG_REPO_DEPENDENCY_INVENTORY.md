@@ -94,3 +94,15 @@ The current source main files were fetched directly, not inferred from the stale
 - Preserve original source timestamps and snapshots; do not overwrite historical cases to make the validator pass.
 - Future IRL ingestion should store event_at, observed_at, available_at, ingested_at and a separate temporal-quality status, allowing available_at to remain unknown.
 - Decoupling should be a separately reviewed app change with tests proving the post-mortem/trading pipeline proceeds if the research RPC is absent and the panel displays a clear schema_pending/unavailable state rather than fabricated zero counts.
+
+
+## Case mutability, maturity and scorer-version findings — migration-source audit
+
+The batch-fix migration 20261020180000_research_knowledge_sync_batch_fix.sql was inspected around the trade and variant UPSERTs:
+
+- research_cases rows are not immutable snapshots: on conflict, the refresh function updates resolved_at, outcome, net_pnl, close_reason/regime (trade cases), and fingerprint/maturity_at/outcome/net_pnl/regime (variant cases), and unions additional evidence_ids. This may be operationally reasonable for a materialized current-state projection, but it is not an append-only historical event log. IRL must not copy this table as though every version of a case were preserved.
+- For variants, maturity_at is set to resolved_at only when outcome is win, loss or expired and resolved_at is non-null. It does not independently calculate entry_at + 72 hours. Therefore maturity_at currently means “source resolver reached a terminal state at this timestamp,” not “the 72-hour benchmark horizon matured.” Keep those semantics separate.
+- The SQL maps every fingerprint beginning v3| to scorer_version v3-mtf-aligned. A cohort prefix can identify a V3 fingerprint family but does not independently prove the exact scorer build/configuration for every historical row. The historical PAXG scorer change documented in RESEARCH_KNOWLEDGE_TRANSFER.md demonstrates why scorer generation needs separate provenance.
+- Evidence inserts use ON CONFLICT (fingerprint) DO NOTHING, while case rows may be updated later. This means the materialized case can reflect a newer outcome while its original entry evidence remains the first inserted version. Preserve both source record/version and each observed outcome revision when designing IRL ingestion.
+
+IRL contract decision: store immutable source-observation events and immutable entry snapshots separately from later resolution events. Derive current case state as a projection. Represent benchmark maturity as an explicit evaluator-derived field based on entry time, configured horizon, required market-data coverage and evaluator version; do not overload a resolver timestamp. Require an actual scorer build/config identifier where available; otherwise use scorer_version=Unknown with a provenance-quality flag rather than asserting v3-mtf-aligned from prefix alone.
