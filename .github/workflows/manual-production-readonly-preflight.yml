@@ -1,0 +1,80 @@
+name: Manual production read-only preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_canonical_project:
+        description: "Type yckewtpfttvwiptmmrfq to confirm the intended production project"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-readonly-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: ${{ inputs.confirm_canonical_project == 'yckewtpfttvwiptmmrfq' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production-readonly-audit
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Verify read-only connection and record baseline
+        env:
+          PROD_READONLY_DATABASE_URL: ${{ secrets.PROD_READONLY_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${PROD_READONLY_DATABASE_URL:-}" || {
+            echo "::error::Missing Actions secret PROD_READONLY_DATABASE_URL"
+            exit 1
+          }
+          export PGCONNECT_TIMEOUT=10
+          export PGSSLMODE=require
+          psql "$PROD_READONLY_DATABASE_URL" --no-psqlrc --set=ON_ERROR_STOP=1 --tuples-only --no-align <<'SQL' | tee production-preflight.txt
+          BEGIN TRANSACTION READ ONLY;
+          SELECT json_build_object(
+            'captured_at_utc', now() AT TIME ZONE 'UTC',
+            'database', current_database(),
+            'server_version', current_setting('server_version'),
+            'transaction_read_only', current_setting('transaction_read_only')
+          );
+          SELECT json_build_object('table','trades','count',count(*)) FROM public.trades;
+          SELECT json_build_object('table','composite_signals','count',count(*)) FROM public.composite_signals;
+          SELECT json_build_object('table','research_evidence','count',count(*)) FROM public.research_evidence;
+          SELECT json_build_object('table','research_cases','count',count(*)) FROM public.research_cases;
+          SELECT json_build_object('table','strategy_variant_signals','count',count(*)) FROM public.strategy_variant_signals;
+          SELECT json_build_object('table','council_lessons','count',count(*)) FROM public.council_lessons;
+          SELECT json_build_object('table','early_entry_candle_lineage','count',count(*)) FROM public.early_entry_candle_lineage;
+          SELECT json_build_object('table','early_entry_regime_observations','count',count(*)) FROM public.early_entry_regime_observations;
+          SELECT json_build_object('table','early_entry_variant_decisions','count',count(*)) FROM public.early_entry_variant_decisions;
+          SELECT json_build_object('table','event_flow_paper_decisions','count',count(*)) FROM public.event_flow_paper_decisions;
+          SELECT json_build_object('table','event_flow_study_snapshots','count',count(*)) FROM public.event_flow_study_snapshots;
+          SELECT json_build_object('table','event_flow_transmissions','count',count(*)) FROM public.event_flow_transmissions;
+          SELECT json_build_object('table','cmc_listing_snapshots','count',count(*)) FROM public.cmc_listing_snapshots;
+          SELECT json_build_object('table','cmc_macro_snapshots','count',count(*)) FROM public.cmc_macro_snapshots;
+          SELECT json_build_object('table','asset_flow_snapshots','count',count(*)) FROM public.asset_flow_snapshots;
+          SELECT json_build_object('table','whale_flow_snapshots','count',count(*)) FROM public.whale_flow_snapshots;
+          SELECT json_build_object('table','research_archive_control','allow_archive',allow_archive,'allow_source_delete',allow_source_delete,'updated_at',updated_at)
+            FROM public.research_archive_control;
+          COMMIT;
+          SQL
+          sha256sum production-preflight.txt > production-preflight.sha256
+
+      - name: Upload baseline evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-readonly-preflight-${{ github.run_id }}
+          path: |
+            production-preflight.txt
+            production-preflight.sha256
+          retention-days: 2
+          if-no-files-found: error
