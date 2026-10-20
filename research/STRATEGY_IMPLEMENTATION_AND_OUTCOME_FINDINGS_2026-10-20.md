@@ -813,3 +813,7 @@ Added explicit RLS policy `early_entry_candle_lineage_service_role_only` (`FOR A
 
 ### Additional fail-closed guard for pre-close capture records — 16:48 UTC
 A broader read-only scan found legacy `market_candles` rows where `captured_at < close_time` among each symbol's latest stored candle. The targeted 15-minute input window used by both Early Entry evaluators contained **zero** such rows at audit time, so this scan does not establish that any post-fix decision consumed one. To prevent stale malformed rows ever being accepted if they enter the active window, both evaluators now also require `captured_at >= close_time` in-memory, in addition to `close_time < evaluation_at` and `captured_at <= evaluation_at`. No historical rows were rewritten. Deployed versions: variants v11, baseline v16. The new regression test covers pre-close capture rejection; runtime verification will follow the next scheduled cycles.
+
+
+### Legacy candle-table quality count — 16:49 UTC
+Read-only count of all stored candle rows found `captured_at < close_time` in 809 of 24,694 15m rows and 1,069 of 68,548 5m rows; all counted rows were captured before the 15:56 UTC deploy cut-off. None fell within the active 15-minute input window at audit time. These are legacy malformed records, not proof of strategy consumption. No deletes or timestamp rewrites were made. Collector-side filtering prevents new unfinished candles from being upserted, and the newly deployed evaluators additionally reject any such record in-memory.
