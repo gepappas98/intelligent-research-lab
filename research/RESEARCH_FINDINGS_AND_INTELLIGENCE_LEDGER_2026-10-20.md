@@ -176,4 +176,4 @@ Read-only source-code audit of `pixel-perfect-pixels` main confirmed that `marke
 - **Evidence:** `pixel-perfect-pixels` commits `e0d76fa`, `c60d0dd`, `a7fe433`, `0617f1e`, `1e71f9c`, `09e7667`; detailed record F-20261020-73 in the strategy findings file.
 
 
-Baseline runtime caveat: the 16:00 orchestrator run stopped at `whale-watch` HTTP 500 before `early-entry-regime`; code and CI are verified, but post-deploy baseline runtime timestamps remain pending the next successful orchestrator run. No manual call was made because it can open paper positions.
+Baseline runtime caveat: the 16:00 orchestrator run stopped at `whale-watch` HTTP 500 before `early-entry-regime`. The 16:20 collector, variants, and orchestrator cron jobs subsequently all reported `succeeded`; variant decision metrics showed `evaluation_at=16:20:01.277Z`, `latest_close_time=16:09:59.999Z`, and `latest_captured_at=16:10:09.994Z`, satisfying both time bounds. No new `early_entry_regime` paper entries appeared after deployment. Direct baseline per-invocation candle telemetry remains pending; no manual call was made because the function can open paper positions.
