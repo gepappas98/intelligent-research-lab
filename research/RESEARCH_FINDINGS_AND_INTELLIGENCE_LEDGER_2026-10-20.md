@@ -143,3 +143,5 @@ The live refresh function definition is V3-only despite the migration ledger lis
 
 ## Live execution audit — latest 50 completed pipeline runs (2026-10-20 ~07:20–15:30 UTC)
 Recorded summary: 135 eligible BUY signals, 46 audited eligible, 89 uncovered; coverage 34.07%, and 4 runs had eligible BUYs but zero audited eligible signals. The 249 recorded audit events included 114 confidence-below-minimum quality gates, 75 per-symbol-cap skips, 27 duplicate-signal skips, 19 accepted BUYs, 7 micro-data-not-ready events (6 stale 5m/15m, 1 missing 5m/15m), 4 micro-pressure cautions, and 3 sideways-gate rejections at whale flow −5.51% versus the required >+5%. No recorded ERROR events appeared in this sample. These counts cover only recorded events and must not be treated as exhaustive because 89 eligible signals were uncovered.
+
+Archive-status timestamp caveat: the live `last_archive_at` field is the maximum capture timestamp across all `research_evidence`, not only retention-source archives. It was non-null while live archive count was zero and both archive/delete gates were false; do not use that timestamp as proof of archival.
