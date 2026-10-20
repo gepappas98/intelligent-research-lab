@@ -99,3 +99,9 @@ The 8-second role timeout and stale planner statistics are now confirmed, and st
 3. Replace broad `SELECT *` / exact count requests for `strategy_variant_signals` and snapshot tables with narrow projections and bounded pagination in the frontend.
 4. Investigate why autovacuum/analyze had not kept statistics current, and why the capacity watchdog is inactive.
 Do not enable archive/delete flags, drop historical tables, or reset production while this remains unresolved.
+
+
+## V3 query plan and immediate post-maintenance observation
+A non-executing `EXPLAIN (COSTS TRUE)` of the V3 aggregation now estimates a sequential scan of `strategy_variant_signals` (68,082 live rows) with an estimated 2,063 qualifying rows, followed by hash aggregation. No `created_at`-leading index dedicated to the V3 filter exists in the inspected index list. Consider a V3 partial index only after measuring the post-ANALYZE request latency and checking write overhead; no index or schema migration was applied in this audit.
+
+A follow-up edge-log query for 2026-10-20 17:17:15–17:20:00 UTC found no new HTTP 500 rows for that interval after ANALYZE completed at approximately 17:17:12 UTC. This is a short observation window, not proof of permanent resolution; the two preceding failures at 17:17:04 and 17:17:08 may have started before ANALYZE. Recheck after fresh app traffic before closing the timeout finding.
