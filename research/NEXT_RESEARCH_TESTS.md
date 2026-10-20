@@ -137,3 +137,6 @@ Storage follow-up: migration `20261020171000_early_entry_lineage_storage_trim.sq
 
 
 Security follow-up completed: explicit service-role-only RLS policy added, anon/authenticated SELECT remains false, service_role insert is true, and security advisor reports no finding for the lineage table. Symbol/time index retained for future lineage queries.
+
+
+Additional regression condition: evaluators now reject any source candle whose `captured_at < close_time`. A broad legacy-row scan found some malformed older records, but none inside the active 15-minute Early Entry input window at 16:48 UTC. No historical rows rewritten. Deployed versions: variants v11, baseline v16; verify next scheduled runs.
