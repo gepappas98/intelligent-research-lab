@@ -35,6 +35,10 @@ Start read-only against existing sources. Confirm GitHub, Lovable, Vercel and Su
 
 ## Transfer and data-contract work (draft PR)
 
+- [Consolidated research knowledge ledger](docs/RESEARCH_KNOWLEDGE_LEDGER.md)
+- [Machine-readable strategy and experiment catalog](docs/STRATEGY_CATALOG.json)
+- [Source-preserving research data transfer runbook](docs/RESEARCH_DATA_TRANSFER_RUNBOOK.md)
+
 The following documents are being reviewed on branch `research/knowledge-transfer-p0`; they do not authorize a database migration or production import:
 
 - [Research knowledge transfer and source caveats](docs/RESEARCH_KNOWLEDGE_TRANSFER.md)
