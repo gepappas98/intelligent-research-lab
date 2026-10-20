@@ -83,3 +83,6 @@ Run these in order when the user requests a new research batch. This is a conclu
 53. **Legacy zero-net-PnL compatibility:** count closed trades where `net_pnl=0` and legacy `pnl<>0`; quantify the difference between archive-case PnL and the established fee-aware fallback. Read-only; no data repair.
 54. **Migration regression fixture:** extend only the ephemeral integration test with V2, Legacy, Unknown and V3 fingerprints, and assert final post-chain behavior for each. Do not use production data.
 55. **Lifecycle/economic outcome separation:** inventory consumers of `research_cases.outcome`; verify that trade rows labelled `closed` are not treated as win/loss labels and that PnL units/basis are handled by source table. Read-only.
+
+56. **Early Entry exit-policy provenance:** compare B/C entry TP/SL values and active max-hold/stale-exit settings at close; keep the resulting cohort distinct from V3 +4%/−3%/72h benchmarks unless policy parity is demonstrated.
+57. **V3 terminal/resolution invariant:** count rows where `outcome IN ('win','loss','expired')` but `resolved_at IS NULL`, and rows with a non-terminal outcome but non-null `resolved_at`. Compare RPC and knowledge-case coverage; read-only.
