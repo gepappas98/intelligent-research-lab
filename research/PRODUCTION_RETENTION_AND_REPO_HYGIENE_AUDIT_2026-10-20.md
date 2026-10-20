@@ -53,3 +53,25 @@ This repository change does not alter Lovable runtime environment variables, can
 3. Audit whether `market_candles` older than the useful research horizon are archived or reconstructible before changing the 30-day cleanup.
 4. Review archive coverage and storage impact with `allow_archive=false` and `allow_source_delete=false` still enforced.
 5. Preserve legacy/V2 observations as distinct cohorts; only V3 aligned-MTF results may inform current variant comparisons or auto-switch.
+
+
+## Runtime errors and disabled cron jobs — production logs verified
+The production cron inventory on 2026-10-20 showed:
+- `trading-pipeline-orchestrator` active, latest cron record succeeded at 17:10 UTC.
+- `trade-position-watchdog` active, latest cron record succeeded at 17:14 UTC.
+- `storage-capacity-watchdog` inactive; its latest recorded run was 2026-10-11 05:33 UTC.
+- Legacy `trading-pipeline-every-15-min` inactive; latest recorded run was 2026-09-29 19:15 UTC.
+Do not reactivate either inactive job without checking its intended replacement and why it was disabled. The active orchestrator is the apparent current pipeline entry point; verify its internal run and downstream stages rather than equating a successful HTTP cron invocation with a successful research cycle.
+
+A read-only scan of production edge logs for the last 24-hour window found repeated HTTP 500 responses with PostgREST error `57014` (query cancellation/statement timeout):
+- `/rest/v1/rpc/get_research_archive_status`: 61 failures; latest 16:53:15 UTC.
+- `/rest/v1/rpc/get_system_resource_stats`: 61 failures; latest 17:14:34 UTC.
+- `/rest/v1/strategy_variant_signals`: 55 failures; latest 16:52:41 UTC.
+- `/rest/v1/rpc/get_variant_performance_v3`: 37 failures; latest 17:14:34 UTC.
+- `/rest/v1/asset_sentiment_snapshots`: 29 failures; latest 17:14:34 UTC.
+- `/rest/v1/cmc_listing_research_observations`: 3 failures; latest 16:46:35 UTC.
+Other individual timeout failures appeared for whale-flow/accumulation RPCs and tables.
+
+The upstream service times and 57014 codes support timeout/cancellation as the common observed failure mode, but do not yet identify whether the root cause is an expensive query plan, lock contention, resource saturation, or a client retry storm. The 61 failures on archive-status/resource-stat RPCs are especially relevant because they can make the dashboard appear broken while the archive safety controls themselves remain closed. Next diagnostic step: inspect the definitions and query plans of these read-only RPCs, their indexes and table sizes; correlate Postgres logs for lock/statement-timeout details. Avoid changing timeouts or dropping indexes/data as a first response.
+
+The trade-position-watchdog function logs in the inspected window reported `status=ok`, `open_positions=37` at 17:14 UTC, `price_unavailable=0`, `errors=[]`, and `auto_close_live=false`. One preceding invocation logged one paper take-profit close. This supports that the watchdog itself was operating at those instants; it does not establish overall pipeline health.
