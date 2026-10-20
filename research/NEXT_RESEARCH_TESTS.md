@@ -140,3 +140,6 @@ Security follow-up completed: explicit service-role-only RLS policy added, anon/
 
 
 Additional regression condition: evaluators now reject any source candle whose `captured_at < close_time`. A broad legacy-row scan found some malformed older records, but none inside the active 15-minute Early Entry input window at 16:48 UTC. No historical rows rewritten. Deployed versions: variants v11, baseline v16; verify next scheduled runs.
+
+
+Legacy source-data check: 809 old 15m and 1,069 old 5m candle rows had `captured_at < close_time`; none were in the active 15-minute evaluation window at the 16:49 UTC check. Keep historical rows unchanged; do not interpret this as contaminated trade count. Both evaluators now reject them if they appear in a future active window.
