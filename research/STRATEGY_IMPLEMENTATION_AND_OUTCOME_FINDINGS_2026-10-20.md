@@ -229,3 +229,13 @@ The orchestrator's `call()` wrapper preserves HTTP failures as `ok: false`. Phas
 Source: [orchestrator at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/trading-pipeline-orchestrator/index.ts).
 
 Research implication: execution-quality analysis must inspect the individual `trade-executor` stage `ok/status`, audit presence/status and the top-level pipeline status separately. Count completed pipeline runs with failed executor stages; do not treat them as successful zero-trade runs. This documents current source behavior only; no production code or pipeline status was changed.
+
+
+## Finding F-20261020-22 — V3 “win rate” excludes expired cases while resolved PnL includes them
+**Status:** metric-definition fact in the reviewed panel and RPC; impact on current displayed rates requires cohort counts. **Confidence:** high.
+
+The V3 RPC counts `win`, `loss`, and `expired` as resolved and sums `pnl_pct` across all three terminal outcomes. The Variant Comparison panel computes displayed `Win%` as `wins / (wins + losses)`, deliberately excluding expired cases from that denominator. Therefore the displayed win rate is conditional on a win/loss decision, not wins divided by all resolved cases. Expired cases still affect the displayed resolved count and total PnL. This is not necessarily a bug, but comparisons can be misleading unless the denominator and expiry share are shown together.
+
+Sources: [V3 benchmark RPC migration at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql), [Variant Comparison panel at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx).
+
+Research rule: report wins, losses, expired, and open separately; calculate and label both decision win rate (`wins/(wins+losses)`) and all-resolved win share (`wins/resolved`) where useful. Never infer that expired outcomes are wins or losses, and keep expired PnL in net benchmark performance.
