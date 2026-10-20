@@ -675,3 +675,11 @@ Research rule: analyze outcome maturity and missingness by entry cohort/source b
 Exact counts include `strategy_shadow_diagnostics` 114,933 rows (~95.98 MiB including indexes), `composite_signals` 16,810 (~78.63 MiB), `strategy_variant_signals` 67,867 (~41.99 MiB), `pipeline_runs` 882 (~36.30 MiB), `whale_alerts` 60,251 (~35.09 MiB), `market_candles` 92,377 (~30.34 MiB), and `accumulation_shadow_observations` 57,317 (~25.51 MiB). These exact counts differ materially from `pg_stat_user_tables.n_live_tup` estimates for several tables; use exact counts for row totals and relation-size measurements for storage, not stale tuple estimates.
 
 Research rule: evaluate each table's retention value, uniqueness and re-computability independently before any owner-approved cleanup. No deletion or retention change was made.
+
+
+## Finding F-20261020-70 — Proposed retention archive does not target the largest live storage consumers
+**Status:** source migration table scope compared with direct live relation-size snapshot. **Confidence:** high.
+
+The nine-table `archive_research_retention_sources` scope covers price/flow/sentiment/news snapshots, event-flow transmissions, whale-flow followups, transition context, transitions and whale-flow snapshots. It does not include the largest measured live consumers: `strategy_shadow_diagnostics` (~95.98 MiB), `composite_signals` (~78.63 MiB), `strategy_variant_signals` (~41.99 MiB), `pipeline_runs` (~36.30 MiB), `whale_alerts` (~35.09 MiB), `market_candles` (~30.34 MiB), or `accumulation_shadow_observations` (~25.51 MiB). Therefore enabling the current retention archive alone would not directly address the dominant measured table footprints; it also must not be enabled merely to chase the size threshold.
+
+Research rule: map per-table growth, reproducibility, strategy/evidence value, and existing retention rules for the largest tables first. Any retention or deletion proposal requires explicit owner approval and a verified recovery/evidence plan; no rows were deleted.
