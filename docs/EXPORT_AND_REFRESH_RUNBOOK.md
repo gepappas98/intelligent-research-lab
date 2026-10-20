@@ -18,6 +18,19 @@ unset SOURCE_DATABASE_URL
 5. Check per-table counts against the source, validate time ranges and representative rows, run a secret scan, and verify no file exceeds GitHub's limit. Then commit the reviewed snapshot to this private repository.
 6. Keep the original source untouched. Do not create a destination, restore, truncate, or delete source data as part of export.
 
+## Every matching/analysis run
+The data export alone is not the intelligence workflow. For each run, retain a run manifest containing the run ID, code revision, algorithm/version, parameters, exact input snapshot checksums, source record IDs, time boundaries, and output checksums. Preserve measured observations separately from interpretation.
+
+Write each conclusion as a new JSON object line in an append-only JSONL ledger; never replace an older conclusion in place. Required fields are defined in `docs/MATCHING_CONCLUSIONS_LEDGER.md`. Example validation command:
+
+```bash
+python3 scripts/validate-conclusion-ledger.py data/conclusions/conclusions.jsonl
+```
+
+The validator checks record shape and unique conclusion IDs. It does not yet prove source-ID resolution or validate checksums against source manifests; those checks must be implemented in the end-to-end pipeline before claiming full validation.
+
+Only after the conclusion records and their evidence links are persisted should the IRL Intelligence index be rebuilt from them. The index is derived and rebuildable; it must never be the only copy of conclusions or source evidence. Every intelligence claim must link to conclusion IDs and ultimately to source records. Keep Legacy/V2/V3 cohorts separate, unresolved outcomes unresolved, and historical decision-time availability boundaries explicit.
+
 ## Ongoing enrichment
 Do not repeatedly commit full snapshots on a schedule: that duplicates binary table dumps in Git history and can grow the repository quickly. Before automatic refresh is enabled, define per-table stable primary keys, incremental watermarks, correction/retraction handling, and a manifest that records the last successfully exported watermark. Append only verified new/changed records in deterministic, compressed chunks, and run duplicate/count/checksum checks. For tables without a reliable key/watermark, keep a deliberate full snapshot only after reviewing size and retention.
 
