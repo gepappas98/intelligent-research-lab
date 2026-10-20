@@ -177,3 +177,9 @@ Read-only source-code audit of `pixel-perfect-pixels` main confirmed that `marke
 
 
 Baseline runtime caveat: the 16:00 orchestrator run stopped at `whale-watch` HTTP 500 before `early-entry-regime`. The 16:20 collector, variants, and orchestrator cron jobs subsequently all reported `succeeded`; variant decision metrics showed `evaluation_at=16:20:01.277Z`, `latest_close_time=16:09:59.999Z`, and `latest_captured_at=16:10:09.994Z`, satisfying both time bounds. No new `early_entry_regime` paper entries appeared after deployment. Direct baseline per-invocation candle telemetry remains pending; no manual call was made because the function can open paper positions.
+
+
+## Early-entry variant scheduler race and offset — 2026-10-20 16:30 UTC
+Read-only timing reconciliation found that collector job 19 and variant job 21 both fired on the ten-minute boundary. The 16:20 variant evaluation at 16:20:01.277 UTC used the last 5m candle closed at 16:09:59.999 UTC and captured at 16:10:09.994 UTC, while the collector finished capturing the 16:19:59.999 UTC candle at 16:20:11.182 UTC. The temporal guard was working (no look-ahead), but variants were one collection interval behind. The baseline `early-entry-regime` ran later in the orchestrator and used the 16:19:59.999 UTC candle captured before its 16:20:38.978 UTC evaluation.
+
+Production-only schedule correction: job 21 `early-entry-variants` changed from `*/10 * * * *` to `1-59/10 * * * *`; collector job 19 remains `*/10 * * * *`. This changes no strategy gates or trade parameters. Schedule read-back succeeded at 16:30:01 UTC; first post-change execution at 16:31 UTC still requires confirmation. At that read, post-deploy candle rows were 322 5m and 164 15m, with zero captured before close. See F-20261020-74 in the strategy findings file. No historical rows or outcomes changed.
