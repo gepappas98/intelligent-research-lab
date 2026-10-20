@@ -63,3 +63,5 @@ Run these in order when the user requests a new research batch. This is a conclu
 
 40. **CMC snapshot freshness:** report `dynamic_watchlist_snapshots.computed_at` and `cmc_listing_snapshots.captured_at` age at CMC paper entry; separate fresh Spot price from potentially stale CMC context.
 41. **CMC active-position preflight coverage:** compare all open CMC paper trades against the newest-1,000 trade query and inspect same-symbol opens by invocation time. Read-only; don't infer duplicates from source alone.
+
+42. **Manual-refresh policy parity:** verify whether the deployed pipeline includes the post-mortem `refresh_research_knowledge_cases(72)` call and whether the RPC is installed; record invocation frequency and side effects without calling it. Preserve the manual-refresh policy; no cron, deployment, or production changes.
