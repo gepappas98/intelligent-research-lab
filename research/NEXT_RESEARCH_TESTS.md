@@ -11,4 +11,5 @@ Run these in order when the user requests a new research batch. This is a conclu
 8. **Check storage compaction effect.** Compare serialized `pipeline_runs` size growth in new runs after summary compaction; do not rewrite historical runs for this research transfer.
 9. **Retain full provenance gaps.** Any old aggregate without run IDs, exact query/window, or stable source IDs remains provisional. Do not invent missing metadata.
 10. **Promote findings only after falsification.** Record counterevidence and test on an independent window before changing status from exploratory to replicated.
-
+11. **Micro-gate ablation (offline only):** split ordinary micro-trend rejection from the stricter BTC-downtrend confirmed-bounce gate and whale-divergence override. Record per-gate inputs/freshness/reason and join to eventual net-of-fee outcomes; compare frozen variants only on a non-overlapping window. Missing BTC data must remain “unconfirmed,” not be relabeled bearish.
+12. **Benchmark contract audit:** verify the deployed dashboard calls the V3-specific RPC and records source-fingerprint prefix, window, outcome treatment (including expired), PnL units and query timestamp. Source code alone does not prove deployment parity.
