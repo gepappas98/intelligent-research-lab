@@ -134,3 +134,59 @@ This newer read-only query supersedes the earlier size and eligible-source count
 - Archive table total relation sizes combine to 3,661,824 bytes (~3.49 MiB), so their removal alone cannot materially resolve overall database capacity pressure.
 
 No rows were deleted and no source tables, controls, policies, functions, cron jobs or trading logic were changed.
+
+
+## 10. Export/restore protocol and current preflight baseline — 2026-10-20
+
+### 10.1 Destination identity result
+
+The connected Supabase project listings (both account connections) contain only:
+- `yckewtpfttvwiptmmrfq` / `trading-command-center` — active source project; not an IRL destination.
+- `opwkbdbpqgtgcrmqqmbq` / `polymarket-quant-bot-lite` — inactive, unrelated project; not approved for IRL.
+
+The connected Lovable workspace `george's Lovable` contains six projects; none is named Intelligent Research Lab. The existing Pixel Perfect Pixels project is `6d1cd604-982a-4237-98b3-1276c19ca6f7`, a trading app, not IRL. Project lookup for the previously observed ref `gbbrmzstuhdizfvabjvz` is denied from both Supabase connections. Consequently, **there is still no authoritative, accessible IRL Supabase project ref**. Do not infer a destination from a stale `.env`, a URL in Git, or an inaccessible ref.
+
+### 10.2 Current private preflight manifest
+
+A private, non-row-data manifest was generated at `/mnt/data/private_artifacts/irl_archive_preflight_manifest_20261020.json` (file mode 0600). Its SHA-256 is:
+
+`a4747bba358e5ee3cd34d64752c17354301fc6dc31d21de4266944ad7fcfe83a`
+
+It records the read-only source baseline at 2026-10-20 09:51:08 UTC:
+- `research_evidence`: 3,019 rows; 3,019 unique IDs; 3,019 unique fingerprints.
+- `research_cases`: 3,000 rows; 3,000 unique IDs; 2,801 distinct non-null fingerprints; 199 null fingerprints.
+- `research_findings`: 0 rows.
+- `research_archive_control`: 1 row; both archive/delete flags false.
+
+The manifest contains row counts and aggregate hashes only, not production row payloads or credentials. Its SHA-256 is the hash of the manifest file itself. The per-table rowset/ID/fingerprint hashes are **baseline hashes, not yet export-file hashes and not yet proof of a successful restore**. The current export has not been created; no destination was written to.
+
+### 10.3 Export protocol — do not execute until the destination and secure storage are verified
+
+1. Use a dedicated, access-controlled local/private volume with encryption at rest. Do not place any data dump, row-level JSON, connection URI, password, or service-role key in GitHub, chat logs, issue comments or public artifacts.
+2. Use a read-only source role for the preflight and a separate authorized export role for the dump. Establish one consistent MVCC snapshot for the dump and all aggregate verification queries; do not compare hashes captured at different times while the source refresh function can update cases.
+3. Create a custom-format `pg_dump` artifact for exactly these tables: `public.research_evidence`, `public.research_cases`, `public.research_findings`, `public.research_archive_control`. Preserve primary IDs and all original column values. Also save a schema/dependency bundle containing table DDL, indexes, constraints, policies/grants, relevant `pg_get_functiondef` output and migration versions. Do not recreate cron jobs automatically from the bundle.
+4. Produce a signed/immutable manifest with source project ref, database/server version, snapshot timestamp, dump SHA-256, per-table row count, distinct/non-null ID count, sorted-ID SHA-256, fingerprint null/distinct counts, sorted-fingerprint SHA-256, canonical full-rowset SHA-256, and schema/migration bundle SHA-256.
+5. Encrypt the dump and manifest before moving them off the working volume. Record the encryption key reference separately from the artifact. Restrict access; verify the encrypted-file hash before and after transfer.
+6. Restore into a **blank disposable PostgreSQL database**, never directly into the eventual IRL production database. Apply only the archive tables/schema needed for the drill; do not import source crons or the source's broad public-read policies into IRL. Keep any target schema changes separate from source-recovery fidelity.
+7. Verify every table after restore: counts, distinct IDs, nulls, duplicate IDs, fingerprint counts, sorted ID hash, fingerprint hash, full-rowset hash, key constraints, and sample row-by-row comparisons. The restored manifest must match the export manifest exactly. A successful command exit alone is insufficient.
+8. Test failure recovery by restoring a second time into another blank database, verify duplicate/create conflicts fail safely, then repeat a clean restore. Record the exact PostgreSQL version, commands, exit codes and comparison outputs. Never test by deleting/replacing rows in the source database.
+9. Only after the export and restore are independently verified may the source-app decoupling and a rollback migration be reviewed. No step in this runbook authorizes a production rollback or source deletion.
+
+**Canonical row hashing contract:** sort rows by primary-key text; compute the ID-set digest over newline-joined ID text; compute the rowset digest over newline-joined PostgreSQL `to_jsonb(row)::text` values in the same order. Preserve the PostgreSQL JSONB text representation as part of the hash contract. The artifact-file SHA-256 is a separate check and must never be substituted for the logical rowset digest.
+
+### 10.4 Dependency trace relevant to recovery
+
+A fresh catalog query found:
+- No foreign-key constraints referencing or originating from the four archive tables.
+- No triggers attached to those four tables.
+- Archive-related routines: `archive_research_retention_sources(integer,integer)`, `get_research_archive_status(integer,integer)`, `refresh_research_knowledge_cases(integer)`, and the pre-existing `cleanup_research_data(integer,integer,boolean)`.
+- `cleanup_research_data` calls the archive routine and must be included in dependency review before any schema rollback.
+- `refresh_research_knowledge_cases` is called by the source app pipeline; the source app also has a read path and UI. Those application dependencies must be decoupled in a separately reviewed change.
+- Active cron `research-data-retention` calls `cleanup_research_data(72,168,false)`; readiness crons call separate readiness functions and are not archive-only by name or definition.
+- RLS is enabled, but SELECT policies for `anon` and `authenticated` use `USING (true)` on evidence/cases/findings. Preserve that as a security finding; do not blindly re-create these policies on IRL.
+
+### 10.5 Disposable PostgreSQL test gate
+
+The container environment does not have `psql`/PostgreSQL binaries, and package installation timed out without provisioning a local server. I did **not** claim a PostgreSQL restore test passed.
+
+The available alternative is an isolated Supabase development branch on the source project. Supabase returned a quoted compute cost of **US$0.01344 per hour** (about US$0.32/day or US$9.81 for 30 days if left running). Branch creation has not occurred; explicit user approval is required before confirming that cost and creating the branch. If approved, use only synthetic fixture rows in the branch, verify the restore procedure, and do not merge the branch to production. No production rows are to be copied into the test branch.
