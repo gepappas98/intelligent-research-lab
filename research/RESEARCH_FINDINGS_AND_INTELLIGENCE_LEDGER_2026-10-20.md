@@ -196,3 +196,7 @@ Decision lineage reconciliation — 2026-10-20 16:32 UTC: all 12 post-deploy var
 
 
 Gate interpretation from the first offset cycle: 53 candle symbols; whale turn true, but aggregate 5m taker-buy imbalance `-0.1512` and 1h bullish breadth delta `0`. B/C therefore correctly remained NO_ENTRY under their existing positive-taker-buy and breadth/adaptive requirements. This is one observation of gate behavior, not an edge or profitability claim.
+
+
+## 2026-10-20 — Normalized Early Entry candle lineage deployed
+Production table `public.early_entry_candle_lineage` applied with RLS, no anon/authenticated grants, service_role-only writes, timestamp validity check, and indexes. It stores per-evaluation candle identity (symbol/timeframe/open/close/captured/source), not raw OHLCV. Both evaluators deployed: `early-entry-variants v9`, `early-entry-regime v14`. Decision metadata now carries a UUID `candle_evaluation_id` and observable `candle_lineage_write_status`; inserts are best-effort to preserve strategy gates. Regression test source added. Await normal scheduled runs to verify lineage rows and timestamps. No historical backfill/reclassification.
