@@ -574,3 +574,39 @@ Research rule: store/derive the actual TP, SL, max-hold and stale-exit policy pe
 Source: [V3 benchmark RPC migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql).
 
 Research rule: count terminal-labelled V3 rows with null `resolved_at` and non-terminal rows with non-null `resolved_at`; report any mismatches separately before trusting cross-surface resolved counts.
+
+
+## Finding F-20261020-57 — Live archive status is 41,465 eligible sources, zero archived, all missing evidence
+**Status:** direct read-only production query on canonical Supabase project `yckewtpfttvwiptmmrfq`, approximately 2026-10-20 15:28 UTC. **Confidence:** high for snapshot.
+
+The live `research_archive_control` row has `allow_archive=false` and `allow_source_delete=false`. `get_research_archive_status(72,168)` reports `status=incomplete`, 41,465 eligible sources, 0 archived, 41,465 missing. By source: asset prices 13,020; asset flow 13,020; asset sentiment 10,789; whale-flow snapshots 1,939; whale-flow transitions 750; transition context 750; shock followups 745; asset news 445; event-flow transmissions 7. No archive or deletion was performed. This supersedes the older source-documented 22,150 count; the old snapshot was stale or from a different observation point.
+
+Research rule: keep both controls disabled. Re-check counts only with aggregate read-only queries and do not equate a generated research case with retention-source archival.
+
+## Finding F-20261020-58 — Live V3 knowledge-case coverage is incomplete and 73 terminal outcomes are stale or missing
+**Status:** direct read-only production aggregate, approximately 2026-10-20 15:28 UTC. **Confidence:** high for snapshot.
+
+The live source has 2,115 V3 fingerprint rows, all created in the last 72 hours: 2,042 open and 73 terminal (37 losses, 36 wins). The `research_cases` table has only 551 V3 cases, all labelled open, leaving 1,564 source rows without a matching V3 case. Of the 73 terminal source rows, 54 have a matching case that is still incorrectly `open` with stale resolution fields, and 19 have no case at all. This is an observed materialization mismatch, not merely a code-path risk.
+
+The live function body is V3-only, but its last materialized V3 case update is 2026-10-19 22:35:15 UTC despite continued pipeline runs on 2026-10-20. Do not use V3 `research_cases` as a complete resolved-outcome source until the mismatch is reconciled.
+
+## Finding F-20261020-59 — Live paper-trade cases lag source trades
+**Status:** direct read-only production aggregate, approximately 2026-10-20 15:30 UTC. **Confidence:** high for snapshot.
+
+The source `trades` table contains 258 rows (220 closed, 38 open), but there are only 199 matching `research_cases` rows: 59 trades have no case (36 closed, 23 open), and 20 existing trade cases disagree with source status, PnL or `closed_at`. The latest missing closed trade was created at 2026-10-20 14:40:39 UTC; the latest source trade was created at 15:30:36 UTC. `research_evidence` contains 199 trade-source evidence rows, consistent with the incomplete case coverage. The zero-net-PnL compatibility check found 0 of 220 closed trades with `net_pnl=0` and nonzero legacy `pnl`, so F-52's legacy-zero scenario was not observed in this snapshot.
+
+Research rule: reconcile by stable source IDs and compare status, `resolved_at`, outcome and PnL basis. Do not bulk-refresh or rewrite cases until the approved manual-refresh workflow is settled.
+
+## Finding F-20261020-60 — Applied migration history and active production refresh function differ from the checked-in migration definition
+**Status:** direct read-only production inspection plus source comparison. **Confidence:** high that the bodies differ; reason unknown.
+
+Supabase migration history lists the archive capture-gate migration as applied. However, `pg_get_functiondef('public.refresh_research_knowledge_cases(integer)')` on the live database shows a V3-only variant filter and returns `variant_scope='V3 only; V2/Legacy remain in source table and are not duplicated by this automatic refresh'`. The checked-in `20261020182000_research_archive_capture_gate.sql` defines the same function without that V3-only filter and classifies V2/Legacy/Unknown variants. Thus the active function does not match the checked-in definition of the migration recorded as applied. A later manual/hotfix change or source/migration drift is possible; the mechanism is not established.
+
+Research rule: treat the live function definition as runtime truth. Preserve the discrepancy and inspect the migration ledger/diffs before any future migration work; do not reapply the migration.
+
+## Finding F-20261020-61 — Knowledge-refresh telemetry is absent from recent pipeline rows while case/evidence materialization is stale
+**Status:** live pipeline row inspection plus source-code comparison; exact refresh invocation count is unknown. **Confidence:** high for observed absence/staleness.
+
+Recent pipeline runs continue at approximately 10-minute intervals through 2026-10-20 15:30 UTC, but their persisted `pipeline_runs.result` objects do not contain `research_knowledge_sync`. The source `pipeline.server.ts` writes that field into `result`; the orchestrator's final update replaces the `result` JSON with a new object containing stages and execution audit but omits the sync field. Meanwhile, the latest research-evidence capture is 2026-10-19 22:35:15 UTC and the V3/trade case coverage gaps above remain. The database therefore does not provide reliable per-run proof that the refresh succeeded, failed, or ran.
+
+Research rule: fix/verify telemetry persistence only in an explicitly approved source change. Until then, report refresh status as unobservable from `pipeline_runs`, and infer no successful refresh from a top-level pipeline `completed` status.
