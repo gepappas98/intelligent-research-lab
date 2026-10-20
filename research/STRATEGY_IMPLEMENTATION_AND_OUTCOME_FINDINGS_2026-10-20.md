@@ -429,3 +429,43 @@ The current source default branch's `src/lib/pipeline.server.ts` calls `refresh_
 Source: [pipeline.server.ts at the current source default branch](https://github.com/gepappas98/pixel-perfect-pixels/blob/main/src/lib/pipeline.server.ts).
 
 Research/safety rule: do not invoke the refresh RPC or change cron/deployment as part of this knowledge-transfer work. Verify deployed code/RPC state and record how often the call runs. Keep manual refresh as the intended operating policy; any source change to disable or explicitly gate this call requires a separate approved change.
+
+
+## Finding F-20261020-42 — Latest source project-state report confirms archive is paused, not complete
+**Status:** documented production verification in source repository dated 2026-10-20; not independently re-queried live in this task. **Confidence:** high for what the report states.
+
+The latest `PROJECT_STATE.md` reports canonical Supabase archive controls `allow_archive=false` and `allow_source_delete=false`; the existing retention schedule remains `17 3 * * *` and returns before archive/delete while the gate is off. It reports 22,150 retention-eligible source rows, 0 archived, 22,150 missing evidence, and 3,000 materialized research cases with 3,019 bounded evidence records. Of 551 V3 cases, all 551 remain open with `maturity_at IS NULL`. The documented database size is 464 MB (486,878,355 bytes), below the 480 MB warning threshold, and no retention-source rows were deleted. PR #132 is merged and the full migration chain passed ephemeral PostgreSQL integration tests. User-controlled Lovable sync/publish and deployed RPC-status verification remain pending.
+
+Source: [PROJECT_STATE.md at source commit 4e55ba1](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/PROJECT_STATE.md).
+
+Research rule: distinguish source-documented production verification from an independent live query. Do not claim archival is complete, evidence coverage is sufficient, or the new pipeline hook is active in Lovable until the pending sync/runtime check is complete.
+
+
+## Finding F-20261020-43 — Event→Flow decision table stores latest state per asset, not an append-only decision history
+**Status:** schema and writer fact at reviewed source revision. **Confidence:** high.
+
+Migration `20261014010000_event_flow_paper_open.sql` declares `event_flow_paper_decisions.asset` as the primary key. The function upserts every invocation with `onConflict: "asset"`, replacing that asset's current decision row. The `observed_at` and `updated_at` fields therefore describe the current/latest state, not a complete sequence of all WAITING_DATA, COOLDOWN, OPEN_FAILED, OPENED, and other decisions over time. This table alone cannot reconstruct historical gate frequencies or decision transitions.
+
+Sources: [decision-table migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261014010000_event_flow_paper_open.sql), [Event→Flow writer](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/event-flow-paper-open/index.ts).
+
+Research rule: label this table as a latest-state snapshot. Historical rejection-rate analysis requires a genuine append-only audit source or previously captured snapshots; never infer historical frequencies from current rows.
+
+
+## Finding F-20261020-44 — Council post-mortem insert and trade completion flag are separate writes in the pipeline generator
+**Status:** source-code fact for `generatePostMortems()`; actual failure/duplicate frequency unknown. **Confidence:** high.
+
+The pipeline's `src/lib/council-learning.ts` inserts a `council_lessons` row for a closed BUY trade, then separately updates `trades.post_mortem_generated=true`. The update's returned error is not checked before incrementing `generated`. If that flag update fails after the lesson insert, the trade can remain eligible for a later post-mortem attempt. The separate Edge Function `council-lessons` has an explicit existing-`source_trade_id` check, but that does not make the main pipeline generator's two writes atomic or establish a unique database constraint.
+
+Source: [council-learning.ts](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/council-learning.ts), [council-lessons Edge Function](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/council-lessons/index.ts).
+
+Research rule: reconcile lesson rows by `source_trade_id` and trade flags; distinguish lesson insertion from flag-update success. Check duplicate source_trade_id counts before treating Council lesson counts as unique closed-trade examples.
+
+
+## Finding F-20261020-45 — Research knowledge reads use bounded samples, not complete table scans
+**Status:** source-code fact; effect on any specific view depends on the downstream consumer. **Confidence:** high.
+
+`readKnowledge()` in `src/lib/research-knowledge.functions.ts` records exact counts but fetches only the newest 250 rows by default for each source table, and caps `research_evidence` and `research_findings` at 100 rows. It uses newest-first ordering and reports query errors separately. Any derived snapshot built from these returned arrays is a bounded recent sample, not a full historical cohort. Exact row counts can reveal that the sample is truncated, but do not supply the missing older rows.
+
+Source: [research-knowledge.functions.ts](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/research-knowledge.functions.ts).
+
+Research rule: preserve per-table exact counts and sample limits alongside every derived snapshot; mark truncated cohorts explicitly. Do not calculate full-history rates from the bounded sample without stratified/batched coverage.
