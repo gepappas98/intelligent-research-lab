@@ -190,3 +190,15 @@ A fresh catalog query found:
 The container environment does not have `psql`/PostgreSQL binaries, and package installation timed out without provisioning a local server. I did **not** claim a PostgreSQL restore test passed.
 
 The available alternative is an isolated Supabase development branch on the source project. Supabase returned a quoted compute cost of **US$0.01344 per hour** (about US$0.32/day or US$9.81 for 30 days if left running). Branch creation has not occurred; explicit user approval is required before confirming that cost and creating the branch. If approved, use only synthetic fixture rows in the branch, verify the restore procedure, and do not merge the branch to production. No production rows are to be copied into the test branch.
+
+
+### 10.6 Application behavior confirmed from current source
+
+The current source-code trace adds an important rollback constraint:
+- `src/lib/pipeline.server.ts` invokes `refresh_research_knowledge_cases(72)` **after** `trade-executor` and post-mortem generation. It uses an 8-second timeout and catches RPC errors; the trading flow continues unchanged. This reduces immediate execution risk but does not make the caller safe to leave after dropping the function (it would continue producing research-sync errors).
+- `src/lib/research-knowledge.functions.ts` queries `research_evidence`, `research_cases`, and `research_findings` directly through the configured public Supabase client. Its per-table read helper records unavailable-table/read errors and returns an empty array for that read; it does not treat a failed read as proof that the table is empty. It also calls `get_research_archive_status(72,168)` with an 8-second timeout and reports migration-pending/error status rather than claiming archive readiness.
+- `src/components/trading/ResearchKnowledgePanel.tsx` imports `getResearchKnowledge`; the UI is therefore coupled to the server reader, even though the archive does not feed signal scoring or trade execution.
+- The current integration SQL test checks fail-closed cleanup and source-row preservation in an ephemeral fixture, but it does not test the production export artifact, import fidelity, full dependency removal, or application behavior after the archive schema is absent.
+- The database ACL confirms `get_research_archive_status(integer,integer)` is `SECURITY DEFINER` and executable by `anon` and `authenticated`. It currently returns aggregate readiness counts. Do not grant new access to the other archive routines or copy source policies blindly into IRL.
+
+**Rollback consequence:** before removing the source tables/functions, separately review the server reader/UI and remove or guard the refresh/status RPC calls in a reviewed source-app PR. Preserve the post-mortem/trade pipeline behavior and add a test that verifies missing archive schema produces a clearly degraded research panel without breaking or altering trade execution.
