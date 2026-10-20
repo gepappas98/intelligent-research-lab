@@ -61,3 +61,16 @@ Therefore:
 - [Supabase project config](https://github.com/gepappas98/pixel-perfect-pixels/blob/main/supabase/config.toml)
 - [Vercel project](https://vercel.com/gepappas-projects/pixel-perfect-pixels)
 - [Lovable project](https://lovable.dev/projects/6d1cd604-982a-4237-98b3-1276c19ca6f7)
+
+## 4. Destination recheck — 2026-10-20
+
+Both currently connected Supabase account views returned the same two projects:
+
+| Project ref | Name | Current status | Decision |
+|---|---|---|---|
+| `yckewtpfttvwiptmmrfq` | `trading-command-center` | `ACTIVE_HEALTHY` | Source only; **not** the IRL destination |
+| `opwkbdbpqgtgcrmqqmbq` | `polymarket-quant-bot-lite` | `INACTIVE` | Not approved as the IRL destination |
+
+The previously observed `gbbrmzstuhdizfvabjvz` reference remains unresolved because the Supabase management API denied access; its ownership, status and relation to Lovable remain unverified. A tracked environment value is not sufficient proof that a project is an approved destination.
+
+**Current decision: no isolated writable IRL database has been identified.** Do not point IRL migrations, imports, secrets or browser clients at either listed project. Before any data transfer, identify the IRL project ref from an authoritative project dashboard/owner context, confirm its URL and region, confirm it is not the TCC source or unrelated inactive project, and perform a read-only identity check. Until then, continue repository documentation and read-only analysis only.
