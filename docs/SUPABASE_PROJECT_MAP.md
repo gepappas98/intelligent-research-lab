@@ -74,3 +74,12 @@ Both currently connected Supabase account views returned the same two projects:
 The previously observed `gbbrmzstuhdizfvabjvz` reference remains unresolved because the Supabase management API denied access; its ownership, status and relation to Lovable remain unverified. A tracked environment value is not sufficient proof that a project is an approved destination.
 
 **Current decision: no isolated writable IRL database has been identified.** Do not point IRL migrations, imports, secrets or browser clients at either listed project. Before any data transfer, identify the IRL project ref from an authoritative project dashboard/owner context, confirm its URL and region, confirm it is not the TCC source or unrelated inactive project, and perform a read-only identity check. Until then, continue repository documentation and read-only analysis only.
+
+
+## 5. Lovable workspace recheck — 2026-10-20 09:49 UTC
+
+The current Lovable workspace `george's Lovable` (workspace ID `vx55H9Kw5Tn3M8npqEMm`) lists six projects. None is named or described as Intelligent Research Lab. The Pixel Perfect Pixels project is `6d1cd604-982a-4237-98b3-1276c19ca6f7`; its cloud database is enabled, but it is the existing trading application and must not be repurposed as IRL.
+
+This independently supports the current blocker: there is no identifiable IRL Lovable project in the accessible workspace, and the connected Supabase project listings likewise expose no approved IRL destination. The old `gbbrmzstuhdizfvabjvz` reference still cannot be inspected by the current Supabase account connections. Do not enable or migrate any database for the existing Pixel Perfect Pixels project as a substitute for IRL.
+
+A separate disposable restore-test branch was priced by Supabase at **US$0.01344/hour**. No branch was created; explicit user cost approval is required before creation. A local PostgreSQL server was not available in the execution environment, and an installation attempt timed out without provisioning it.
