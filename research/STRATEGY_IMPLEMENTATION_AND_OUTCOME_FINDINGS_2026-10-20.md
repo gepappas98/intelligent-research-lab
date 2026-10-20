@@ -759,3 +759,7 @@ At the 16:30 UTC read, rows captured since the 15:56 UTC deploy cut-off totaled 
 
 ### Required follow-up
 After the first staggered run, verify that the variant metrics show a current closed candle captured before evaluation, with capture age materially below the previous ~9.8 minutes; confirm job 21 remains active and that all A/B/C decisions still record evaluation/candle timestamps. This is a freshness check only; do not change gates based on the result. Historical contamination remains unquantifiable, and no retrospective trade reclassification is permitted.
+
+
+### F-20261020-74 runtime verification — passed at 16:31 UTC
+The first scheduled run after the offset succeeded: cron job 21 started at `16:31:00.396Z`; all three variant decisions were recorded at approximately 16:31:02 UTC with `evaluation_at=16:31:00.661Z`, `candle_latest_close_time=16:29:59.999Z`, and `candle_latest_captured_at=16:30:11.256Z`. The close lag fell from ~10.02 minutes to 1.01 minutes, and capture age fell from ~9.85 minutes to 0.82 minutes. A/B/C each recorded `NO_ENTRY`; the schedule change did not itself force an entry. Job 21 remains active on `1-59/10 * * * *`; collector job 19 remains active on `*/10 * * * *`. The collector now has 426 post-deploy 5m rows and 217 post-deploy 15m rows, with zero captured before close. This validates the targeted freshness correction for the first offset cycle; continue monitoring subsequent cycles for stability.
