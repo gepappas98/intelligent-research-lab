@@ -249,3 +249,43 @@ A read-only SQL snapshot of `strategy_variant_signals` as of 2026-10-20 05:35 UT
 The database RPC `get_variant_performance_v3(7)` and a raw source-table aggregation returned identical per-preset results in this read-only comparison. Thus, as of this timestamp, the canonical database does not have zero resolved V3 rows; a UI still showing zero would require checking its refresh time, selected cohort, deployed frontend build and effective database target rather than assuming the RPC or historical records are empty.
 
 These are early, in-sample operational observations, not an endorsement of any strategy. No strategy switch was triggered by this audit; no Edge Function, strategy setting, row or deployment was changed.
+
+## 13. PAXG first retained BUY — source-linked forensic case (read-only, 2026-10-20)
+
+The earliest BUY currently present in canonical `composite_signals` for PAXG is signal `063f1b9c-74c8-4d10-956e-08d14ff25984`, created **2026-10-15 11:20:11 UTC**. This means earliest retained in the inspected table, not proof that no earlier event ever existed.
+
+### Reconstructed entry-time record
+
+- **Price:** 4,158.35; regime: `sideways`; session: `european`.
+- **MTF context stored in immutable `entry_context_snapshot`:** 4h neutral, 1h bullish, 1d bullish; gate passed at 2/3. Snapshot timestamp: 11:20:11.562 UTC.
+- **Whale input:** accumulation, approximately $46,525.59, Binance Spot / Binance aggregate trades; event timestamp 08:22:47.795 UTC.
+- **AI Council input:** BUY, 82% conviction, source timestamp 10:40:10.173 UTC, synced 10:40:10.216 UTC; Council price reference 4,155.41.
+- **Strategy weights captured:** preset `balanced`; whale 0.3, technicals 2.2, Council 1.0.
+- **Stored composite score/confidence:** 1.53 / 0.3825. The score numerically equals whale +0.30 plus Council (0.82 × 1.5 × 1.0 = 1.23), with no apparent technical contribution despite the 2/3 MTF gate pass.
+- **Trade outcome:** no trade was linked to this signal.
+
+### Exact pipeline and rejection
+
+The matching `trading-pipeline-orchestrator` run is `b38c6f58-8db0-4103-8734-c0e521fc39ba`, 11:20:00.716–11:20:19.357 UTC, status `completed`. Its `signal-combiner` stage returned HTTP 200. The `trade-executor` stage also returned HTTP 200, opened zero trades, and recorded an execution-audit event for this exact signal:
+
+- Stage: `QUALITY_GATE`
+- Decision: `REJECT`
+- Reason: `confidence_below_minimum`
+- Minimum confidence: 0.60
+- Actual confidence: 0.3825
+
+So this was a BUY **signal**, not a paper position or an executed order. The reason for no position is explicitly recorded; it must not be described as an execution failure.
+
+### Unresolved scoring-version discrepancy
+
+The stored score has no technical contribution, while the captured MTF alignment is 2 bullish out of 3. The currently deployed `signal-combiner` v41 (updated 2026-10-19 16:54 UTC) uses the shared weighted 4h/1h/1d formula; that later code version cannot by itself establish what was deployed on 2026-10-15. Preserve the captured score and snapshot unchanged. Resolve this discrepancy by locating the historical Edge Function version or matching deployment artifact before attributing it to a formula bug. Do not recompute the old signal using current code and overwrite its historical score.
+
+### Freshness status as of 2026-10-20 05:36 UTC
+
+- Latest retained PAXG composite signal: 2026-10-17 23:40:18 UTC; latest BUY: 2026-10-16 10:50:18 UTC.
+- Latest PAXG indicator snapshots: 2026-10-17 17:50:08 UTC (4h/1h/1d/5m/15m records).
+- Latest PAXG Council observation: 2026-10-17 16:40:07 UTC; latest whale alert: 2026-10-17 11:09:49 UTC.
+- The current dynamic watchlist snapshot (computed 2026-10-20 01:10 UTC) contains 142 symbols and excludes PAXG. This is consistent with PAXG not receiving fresh current inputs, but the exact upstream reason it left the active universe remains unverified.
+- The main orchestrator continued to run every 10 minutes with completed status on 2026-10-20; recent TradingView signal stages persisted 507–517 snapshots per run with one reported worker failure. This proves the whole pipeline was not globally stopped; it does not identify which symbol failed.
+
+**Next safe investigation:** trace why PAXG left the dynamic watchlist and which source collector stopped refreshing it, using read-only watchlist/collector metadata and the per-run worker failure details. Keep this historical signal and its source evidence immutable; no data, trade or pipeline setting was changed during this trace.
