@@ -720,7 +720,7 @@ Recommended corrective design (not applied): filter upstream collector results t
 
 ### Verification
 - Re-read the deployed function definitions: versions 3, 7, and 13 are ACTIVE and contain the expected timestamp predicates.
-- Code-level regression assertions: 13/13 passed, covering exact timestamp equality, a just-closed candle, delayed collection available before evaluation, a capture that happens after evaluation, open candles, and the production query/source guards.
+- Code-level assertions: 13/13 passed. GitHub Actions run [39453060338](https://github.com/gepappas98/pixel-perfect-pixels/actions/runs/39453060338) succeeded: all three target functions type-checked, and the Deno candle-integrity suite passed 6/6 tests covering equality boundaries, just-closed candles, delayed capture, unfinished candles, and source/query guards.
 - The two active cron jobs remain on their existing `*/10 * * * *` schedule (`market-candle-collector`, `early-entry-variants`). No schedule changes were made.
 - Immediately after deployment, the database still contained rows collected before this fix (`captured_at < close_time`): in the preceding two hours, 60 rows each on 5m and 15m matched that condition; 52 5m and 55 15m rows had `close_time >= now()`. These are pre-deployment persisted rows, not proof of post-deployment collector writes. The downstream evaluators reject them by both SQL and in-memory bounds. A subsequent scheduled collector run is needed to refresh closed rows; this patch does not delete or rewrite historical rows.
 
