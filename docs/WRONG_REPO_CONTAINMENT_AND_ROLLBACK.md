@@ -108,3 +108,15 @@ Removal is ready for review only after:
 - the destination data contract is approved;
 - rollback is tested against a disposable database;
 - the user-facing app deployment sequence is documented and separately reviewed.
+
+
+## 8. Additional source-migration audit — temporal assumptions
+
+Read-only inspection of the deployed `refresh_research_knowledge_cases(integer)` definition identified a material data-quality caveat:
+- It writes `observed_at = source.created_at` and `available_at = source.created_at` for trades, composite signals and variant signals.
+- The inspected source schemas do not establish that `created_at` equals the real signal event time or when the strategy could first know the values.
+- The refresh maps trade cases to cohort `Unknown` and scorer `paper-trade`; it maps variant cohorts using fingerprint prefixes and stores V3 scorer label `v3-mtf-aligned`.
+- For variant cases, `maturity_at` is assigned from `resolved_at` only for the limited terminal labels `win`, `loss`, or `expired`; it is not independently calculated as entry time + 72h.
+- The refresh can update case outcome, PnL, timestamps and evidence links in place as source values change, while entry evidence is inserted once by fingerprint.
+
+These behaviors do not by themselves prove individual records are wrong, but they mean the archive's bitemporal and maturity guarantees must not be assumed from the schema. Before any transfer, IRL must preserve the raw source timestamps and label inferred availability/maturity as unverified unless the upstream producer/evaluator contract confirms them. Do not copy these archive fields as authoritative event-time labels.
