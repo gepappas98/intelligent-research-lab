@@ -30,3 +30,12 @@
 ## Caveats
 
 These are a point-in-time production snapshot. Counts can change while collectors and the trading research pipeline run. Missing current `trades` rows do not prove permanent loss if other backups or historical exports exist. No retention gate, cron schedule, active scoring path, or production database content was changed by this audit.
+
+
+## Active Council retrieval-path verification (code inspection)
+
+The current `supabase/functions/council-sync/index.ts` already buckets retrieved lessons by symbol and only places the first **five newest lessons per symbol** into each in-memory prompt bucket. This is an active retrieval cap, not a database retention cap. Therefore the 259 stored rows and per-symbol counts above should not be “fixed” by deleting older lessons.
+
+The query is ordered newest-first and globally limited to `symbols.length * 10` rows before per-symbol bucketing. In a highly skewed lesson distribution, this global limit can truncate the candidate pool before every symbol gets five lessons. Follow-up improvement should evaluate a per-symbol top-five query (e.g. row-number partitioning) or otherwise guarantee per-symbol coverage, while preserving all stored lesson history. No change has been deployed.
+
+The deployed `council-lessons` writer also checks for an existing lesson by `source_trade_id` before insert and only processes closed-trade inputs. The 29 current missing trade references should therefore be investigated as historical source-row disappearance, not “repaired” by generating new IDs.
