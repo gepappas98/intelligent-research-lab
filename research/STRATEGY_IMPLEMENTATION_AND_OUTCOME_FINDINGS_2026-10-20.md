@@ -120,3 +120,21 @@ The implementation also has a compatibility fallback for realized PnL: if net_pn
 **Research implication:** distinguish risk telemetry from actual rejection/enforcement in every report. Record researchMode, active guard, rejection reason, and caller path. Reconcile pnl/net_pnl, fee treatment, and close status before deriving performance. Do not assume a configured cap is active in research mode, and do not infer live-trading behavior from this paper-only risk engine.
 
 Source: [risk.engine.ts](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/risk.engine.ts).
+
+## Finding F-20261020-12 — Missing MTF inputs are excluded from the score denominator
+**Status:** unit-tested source behavior; live incidence and predictive value unmeasured. **Confidence:** high for the scoring contract.
+
+The shared MTF scorer's tests explicitly assert that unavailable timeframes are excluded from the denominator. Therefore, one available bullish timeframe with the other two unavailable can score +1.0, the same normalized score as three aligned bullish timeframes. A neutral but available timeframe, by contrast, dilutes the score. The diagnostic string in signal-combiner marks individual 4h/1h/1d frames as missing, so the underlying code provides a way to distinguish these cases, but any downstream consumer that stores only the scalar score can lose that distinction.
+
+**Research implication:** retain score plus available-frame count, per-frame availability/freshness, and frame directions. Segment outcomes by coverage (3/3, 2/3, 1/3) before comparing presets; do not interpret a normalized score of +1 as proof that all timeframes agreed. Test whether a minimum-coverage rule improves out-of-sample net expectancy offline before any production change.
+
+Sources: [MTF scoring tests](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/_shared/mtf-scoring.test.ts), [signal-combiner.ts](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/signal-combiner/index.ts).
+
+## Finding F-20261020-13 — Research mode intentionally bypasses every economic/capacity brake in this risk engine
+**Status:** source behavior verified; exact callers and production runtime path not yet verified. **Confidence:** high for this function.
+
+The reviewed canOpenTrade implementation conditions maximum-open-position, daily economic-loss, consecutive-loss-streak, and aggregate portfolio stop-risk rejections on not being in researchMode. Research mode still calculates the associated metrics and returns them in RiskDecision, but those metrics are telemetry rather than enforced entry limits. The loss-streak query itself uses legacy gross pnl for the most recent closed paper BUY trades; it does not use the fee-aware realizedPnlValue helper used by equity/daily PnL calculations.
+
+**Research implication:** any paper cohort produced with researchMode=true must be labelled capacity-unbounded and not evaluated as if the normal risk brakes had constrained it. Before comparing it to capped paper results, record the actual caller's researchMode value and quantify counterfactual breaches: positions above 3, daily economic loss below −1.2% equity, aggregate stop-risk above 1.2%, and 3+ losses in the last 5. Also reconcile gross pnl versus net_pnl for the loss-streak rule. This is an evaluation distinction, not a recommendation to turn the brakes on or off.
+
+Source: [risk.engine.ts](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/risk.engine.ts).
