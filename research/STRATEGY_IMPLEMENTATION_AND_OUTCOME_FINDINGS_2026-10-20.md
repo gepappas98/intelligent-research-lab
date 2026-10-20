@@ -727,13 +727,13 @@ Recommended corrective design (not applied): filter upstream collector results t
 ### Historical impact audit (do not relabel trades)
 The current telemetry cannot link a decision to a specific candle `open_time`, `close_time`, `captured_at`, or immutable source-row ID. Therefore an exact count of decisions/entries that actually consumed unfinished candles **cannot be proven from retained evidence**; do not mark any historical trade invalid or change outcomes.
 
-Observed historical population at audit time:
-- `early_entry_variant_decisions`: A_CURRENT 19 PAPER_OPEN decisions; B_EARLY_REVERSAL 838 NO_ENTRY; C_ADAPTIVE_REVERSAL 838 NO_ENTRY; A_CURRENT 833 NO_ENTRY.
-- `trades` with `mode='paper'` and `entry_source='early_entry_regime'`: 19 total, 11 closed and 8 open.
-- These are the population to investigate, **not** a claim that all 19 entries or all decisions were affected. Exact contaminated count remains unknown.
+Observed historical population before deployment (cut-off 2026-10-20 15:56 UTC):
+- `early_entry_variant_decisions`: 2,528 decisions lacked `candle_evaluation_at`: A_CURRENT 833 NO_ENTRY + 19 PAPER_OPEN; B_EARLY_REVERSAL 838 NO_ENTRY; C_ADAPTIVE_REVERSAL 838 NO_ENTRY.
+- `trades` with `mode='paper'` and `entry_source='early_entry_regime'`: 19 entries existed before the fix, 12 closed and 7 open at the cut-off (current statuses may change as paper trading continues).
+- These are **potentially exposed populations**, not counts proven to have consumed unfinished candles. Since pre-fix decision records lack immutable candle IDs and per-input timestamps, the exact contaminated count remains unknown.
 - No historical trades, decision rows, source candles, PnL, or statuses were changed.
 
 Source commits on `pixel-perfect-pixels/main`: `e0d76fa84bb618b8b05da12edfdebf4b4bed3fd8` (collector), `c60d0dd282bcaf71c8a10c5be45ef8e8978a1e86` (variants), `a7fe43359650e06a57496fda504d7215a0c70145` (regime), `0617f1e8220d4eb0d0c467ca485cf3d8e872fd33` (duplicate-key cleanup), `1e71f9c2e22154cb27190314ee1bd995cab0a237` (Deno tests), `e51edb5c55e9eca1dda8953877b707f568342056` (remove obsolete test extension), and `09e76675c3a0e24877f0c1a7d2de97c06cc9f5e9` (CI read permission).
 
 
-Baseline runtime caveat — 2026-10-20 16:00 UTC: the `early-entry-variants` runtime decision metrics passed both checks (`latest_close_time` strictly before `evaluation_at`; `latest_captured_at` no later than evaluation). The scheduled `trading-pipeline-orchestrator` run did not reach `early-entry-regime`: the critical `whale-watch` stage returned HTTP 500 and the orchestrator exited early. The baseline function's deployed code passes CI and its predicates are verified, but post-deploy runtime telemetry remains pending until a successful orchestrator run. It was not manually invoked because it can open paper positions.
+Baseline runtime caveat — 2026-10-20 16:00 UTC: the `early-entry-variants` decision metrics passed both timestamp checks. That orchestrator run did not reach `early-entry-regime` because `whale-watch` returned HTTP 500. Follow-up verification at 16:20 UTC: collector, variants, and orchestrator cron jobs all reported `succeeded`; the three variant decisions recorded `evaluation_at=16:20:01.277Z`, `latest_close_time=16:09:59.999Z`, and `latest_captured_at=16:10:09.994Z`, so both timestamp bounds held. No new baseline `early_entry_regime` paper entries were created after deployment. The baseline function was not manually invoked because it can open paper positions; its deployed predicates are covered by CI, while a direct per-invocation baseline telemetry confirmation remains pending.
