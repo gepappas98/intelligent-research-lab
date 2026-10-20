@@ -128,3 +128,20 @@ LLM output may propose a candidate finding but cannot promote it to validated wi
 **Still unresolved:** IRL's own database project ref; exact Lovable migration target; source primary/foreign-key behavior beyond inspected IDs; whether any source fields are overwritten; actual signal availability timing; source scorer/evaluator version coverage; TP/SL same-candle collision semantics; net PnL/fee semantics by cohort; source table retention policies and complete dependency graph.
 
 No IRL schema or production import should be created until those blockers are closed and the user-facing contract is reviewed.
+
+## 9. Research universe is not the execution watchlist
+
+IRL must not inherit the Trading Command Center's current dynamic watchlist as its only observation universe. The execution watchlist is optimized for operational relevance and can remove assets when they no longer qualify by venue/liquidity rules or when an open paper position closes. That behavior can end future observations and censor a research series.
+
+**Observed PAXG example:** PAXG was present in dynamic-watchlist snapshots on 2026-10-15, became pinned while a paper position was open, remained pinned through 2026-10-17 12:00 UTC, and was absent from the 18:00 UTC snapshot after its paper trade closed at 17:50 UTC. The current active snapshot contains 142 symbols and excludes PAXG. Its latest stored 5m/15m/1h/4h/1d indicator observations are from 2026-10-17. This is consistent with operational watchlist membership and priority windows stopping further refreshes; the precise venue/candidate filter that prevented re-entry remains unverified.
+
+For IRL, separate at least these concepts:
+
+- **Research universe membership:** explicit assets/cohorts under study, with effective start/end times and a versioned inclusion rule.
+- **Operational watchlist membership:** source-app eligibility for live/paper signal collection, with the exact source snapshot ID and reason.
+- **Observation availability:** whether each feature was actually available at a given decision timestamp, independently of universe membership.
+- **Coverage/censoring:** when an asset stops being observed, why collection stopped, and which outcomes become unobservable as a result.
+
+Proposed membership fields: `universe_id`, `universe_version`, `asset_id`, `valid_from`, `valid_to`, `recorded_at`, `inclusion_reason`, `exclusion_reason`, `source_snapshot_id`, and `source_project_ref`. Membership history should be append-only; changes are new events, not updates that erase the prior reason.
+
+Do not force PAXG back into the source trading watchlist as part of this work. If it remains a research target, include it in an IRL research-universe cohort once the isolated destination is verified, and mark any gaps after 2026-10-17 as coverage/censoring rather than inventing observations.
