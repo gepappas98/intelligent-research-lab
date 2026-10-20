@@ -175,3 +175,25 @@ At reviewed source commit `4e55ba120f37fe959d8dd4256ee6536cedfe5253`, the Varian
 Sources: [V3 benchmark migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql), [Variant Comparison panel](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx), [strategy auto-switch](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/strategy-auto-switch/index.ts), [read-only diagnostic allowlist](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/mcp-diagnostic.server.ts).
 
 No production RPC, migration, UI, or strategy was changed in this review.
+
+
+## Finding F-20261020-17 — Shadow resolver must distinguish maturity from missing market data
+**Status:** source/PR evidence; current merge and production deployment status not verified. **Confidence:** high for the documented failure mode, unknown for present runtime state.
+
+The source repository's resolver audit history describes a concrete failure pattern: matured shadow rows remained open because Binance rejected a symbol/pair request (example: `PONSUSDT`, HTTP 400), while an outer catch converted the fetch failure to an empty candle array. A zero-candle window therefore did not explain whether the row lacked a relevant candle or the fetch itself failed. The proposed resolver audit changes add explicit events for fetch failures and for expiry blocked by fetch failure/no relevant candle, without inventing a close or changing TP/SL/72-hour expiry rules.
+
+Related PR records:
+- [PR #78 — prioritize matured shadow resolver rows](https://github.com/gepappas98/pixel-perfect-pixels/pull/78): describes starvation risk when rotating pages as eligible row counts change; adds a dedicated matured-row batch alongside a rotating regular batch.
+- [PR #79 — audit resolver candle fetch failures](https://github.com/gepappas98/pixel-perfect-pixels/pull/79): describes the v5-to-v6 audit-event change.
+- [PR #77 — retry-safe shadow resolver](https://github.com/gepappas98/pixel-perfect-pixels/pull/77): describes symbol-to-pair normalization, non-terminal treatment of missing lower-timeframe candles and rotating batches; its body explicitly says the deployed function was still v3 at the time of that report.
+
+These PR descriptions are evidence of proposed/code-level remediation, not proof they are merged or deployed. An open/unresolved row is not a loss, win, expiry, or zero-PnL observation. Next manual audit should check the exact deployed resolver version and compare matured-open counts, fetch-failure events, relevant-candle counts and actual terminal outcomes. No production resolver or historical row was changed in this research pass.
+
+## Finding F-20261020-18 — Execution-capacity observations are rejection-triggered, not a full candidate ledger
+**Status:** schema/call-site fact at reviewed source commit; production coverage unverified. **Confidence:** high for schema and reviewed caller behavior.
+
+The `execution_capacity_observations` schema captures pipeline run ID, signal ID, symbol, observed time, candidate confidence/price/regime/reasoning, rejection reason, open-position count, held positions and a candidate snapshot. However, the reviewed caller writes these records in the max-open-position rejection path. It is therefore a selective record of capacity rejections, not a complete log of all candidate decisions and not sufficient by itself to replay normal risk decisions. Combined with the paper-mode risk-brake bypass documented in F-11/F-13/F-15, missing observations must not be interpreted as proof a candidate passed normal risk limits.
+
+Source: [observation schema](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261008163705_add_execution_capacity_observations.sql), [reviewed pipeline caller](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/pipeline.server.ts).
+
+Research implication: inventory the recoverable candidate universe and label absent telemetry as unknown. Any future compact decision telemetry should be versioned and research-only; do not alter execution policy as part of this audit.
