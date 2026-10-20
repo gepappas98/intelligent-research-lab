@@ -789,18 +789,18 @@ Added `public.early_entry_candle_lineage` with one normalized row per evaluation
 ### Code and deploy
 - Updated `early-entry-variants` and `early-entry-regime` to select candle `open_time` and `source`, persist normalized lineage rows, and include `candle_evaluation_id` plus `candle_lineage_write_status` in decision/gate metadata.
 - Lineage writes are best-effort and emit an error log/status on failure, rather than altering strategy eligibility or silently changing gates.
-- Production versions now: `early-entry-variants v9`; `early-entry-regime v14`.
+- Production versions now: `early-entry-variants v11`; `early-entry-regime v16`.
 - Added static regression coverage to `supabase/functions/tests/candle-integrity.test.ts` for normalized lineage, source identity, and observable write failures.
 - Database migration source is `supabase/migrations/20261020170000_early_entry_candle_lineage.sql`; production schema migration succeeded.
 
-### Verification still required
-Wait for normal scheduled executions (do not invoke either evaluator manually because they can open paper positions). Confirm new lineage rows appear for both function names, each evaluation ID matches the corresponding metrics/gate diagnostics, all stored rows satisfy the timestamp check, and `candle_lineage_write_status=written`. Verify no extra entries or strategy parameter changes. The CI run for the latest main commit has not yet been independently confirmed by the available workflow-run lookup.
+### Runtime verification status
+Normal scheduled executions have now verified both writers. At 16:50 UTC the baseline v16 wrote 52 rows; at 16:51 UTC variants v11 wrote another 52 rows shared by A/B/C. Both runs recorded `candle_lineage_write_status=written`, matched evaluation IDs, and had zero invalid timestamp rows. No manual evaluator calls were used. The CI run for the latest main commit has not yet been independently confirmed by the available workflow-run lookup.
 
 
-### F-20261020-76 first runtime check — variants passed, baseline pending
+### F-20261020-76 runtime verification — both writers passed
 At 16:41:01.871 UTC, `early-entry-variants v10` wrote one evaluation ID `d00c0701-88f0-4a00-b9eb-d4f757b71b00` shared by A/B/C, with `candle_lineage_write_status=written`. The normalized table contains 52 source-candle rows for 52 symbols. The recorded evaluation time is 16:41:01.871Z; closes range from 16:29:59.999Z to 16:39:59.999Z; latest capture is 16:40:11.929Z. All 52 rows satisfy the database time constraints, and the decision metadata IDs match the lineage evaluation ID.
 
-A baseline run at 16:40:23.444Z used the pre-final deployment during the schema/code rollout and recorded `candle_lineage_write_status=failed` because that deployed revision did not yet send the newly required `evaluation_at` column. This invocation completed with HTTP 200 and zero entries; it did not alter trades or gates. `early-entry-regime v15` now sends `evaluation_at`; verification is pending on the next normal orchestrator cycle. Do not invoke manually.
+A baseline run at 16:40:23.444Z used the pre-final deployment during the schema/code rollout and recorded `candle_lineage_write_status=failed` because that deployed revision did not yet send the newly required `evaluation_at` column. This invocation completed with HTTP 200 and zero entries; it did not alter trades or gates. `early-entry-regime v16` now sends `evaluation_at`; the next scheduled invocation at 16:50:37.522Z passed, writing 52 baseline lineage rows under evaluation ID `e793e994-92c9-4d86-b039-9907931a3daf` with `candle_lineage_write_status=written`. No manual invocation was used.
 
 
 ### Storage trim after first lineage batch — 16:44 UTC
@@ -817,3 +817,7 @@ A broader read-only scan found legacy `market_candles` rows where `captured_at <
 
 ### Legacy candle-table quality count — 16:49 UTC
 Read-only count of all stored candle rows found `captured_at < close_time` in 809 of 24,694 15m rows and 1,069 of 68,548 5m rows; all counted rows were captured before the 15:56 UTC deploy cut-off. None fell within the active 15-minute input window at audit time. These are legacy malformed records, not proof of strategy consumption. No deletes or timestamp rewrites were made. Collector-side filtering prevents new unfinished candles from being upserted, and the newly deployed evaluators additionally reject any such record in-memory.
+
+
+### Both lineage writers verified after final timestamp guard — 16:51 UTC
+The baseline evaluation at 16:50:37.522Z and variant evaluation at 16:51:24.905Z each wrote 52 rows for 52 symbols. Baseline ID: `e793e994-92c9-4d86-b039-9907931a3daf`; variant ID: `07d582ee-64bb-41b3-95e0-1c4f35c638d5`. Both latest candles closed at 16:49:59.999Z and were captured at 16:50:13.526Z before evaluation. The combined table has 156 rows across three evaluations, with zero invalid timestamps. Both functions were deployed after adding the additional in-memory `captured_at >= close_time` guard. All A/B/C decisions remained NO_ENTRY; no Early Entry paper positions were created after the deploy cut-off. The one baseline lineage write failure at 16:40 was confined to the old function revision during the rollout and was followed by successful v16 writes.
