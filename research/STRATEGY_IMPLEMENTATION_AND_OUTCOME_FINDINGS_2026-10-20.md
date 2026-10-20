@@ -319,3 +319,63 @@ The Early Entry function reads `whale_alerts` created within the previous hour w
 Source: [early-entry-regime at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/early-entry-regime/index.ts).
 
 Research rule: audit one-hour qualifying whale-alert counts and whether the 3,000-row limit is reached; compare the current computed state with a deterministic, fully covered or explicitly bounded cohort offline. Do not change the production gate until the bias is measured.
+
+
+## Finding F-20261020-31 — Archive cleanup response contains contradictory status keys
+**Status:** source-code fact; no claim that cleanup was run. **Confidence:** high.
+
+Migration `20261020182000_research_archive_capture_gate.sql` pauses archive writes by setting `allow_archive=false` pending storage/evidence review. In the early return from `cleanup_research_data`, the same `jsonb_build_object` supplies `archive_only=true` and later `archive_only=false` (and repeats `archive_enabled` / `delete_enabled`). PostgreSQL JSON object construction retains the later value for duplicate keys, so the returned `archive_only` flag can contradict the explanatory reason and disabled archive status. The branch returns before any source DELETE, so this is a status/reporting defect, not evidence of deletion.
+
+Source: [archive capture gate migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql).
+
+Research/safety rule: treat `archive_enabled`, `delete_enabled`, `reason`, and actual row deltas as separate evidence; fix duplicate response keys in a future reviewed migration only. Never infer that cleanup ran from this source inspection.
+
+
+## Finding F-20261020-32 — Event→Flow open-position and cooldown checks are a bounded, non-atomic preflight
+**Status:** source-code fact; duplicate-entry frequency unknown. **Confidence:** high for the preflight design.
+
+`event-flow-paper-open` queries the newest 500 `event_flow_paper` paper trades, builds its active-position and cooldown maps in memory, then inserts qualifying trades one at a time. There is no transaction spanning the preflight read and insert in this function, and the reviewed code does not establish a database uniqueness guard for one active trade per asset. A position outside the newest-500 window may be missed; overlapping invocations can also both pass the same preflight before either insert completes. Neither failure is proven to have occurred.
+
+Source: [event-flow-paper-open at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/event-flow-paper-open/index.ts).
+
+Research rule: audit open-position counts independently of the 500-row decision window, check overlapping invocation timestamps, and count same-asset concurrent opens. Keep this as a paper-only integrity audit; do not add an execution lock without a deliberate design review.
+
+
+## Finding F-20261020-33 — Early Entry variant confluence reads fail without explicit error diagnostics
+**Status:** source-code fact; actual query-failure incidence unknown. **Confidence:** high.
+
+In `early-entry-variants`, the council, sentiment, and price-snapshot reads destructure `data` without checking each query's `error`. Missing rows and query failures can therefore both appear as absent confluence/price evidence. Council and sentiment are boosters rather than mandatory gates, but this still weakens diagnostic interpretation; a failed price read can leave the variant with no candidates without a distinct data-error classification.
+
+Source: [early-entry-variants at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/early-entry-variants/index.ts).
+
+Research rule: distinguish `no_rows`, `query_error`, `stale_data`, and `valid_data` for each optional input. Do not interpret missing confluence as negative sentiment or no candidate as a market rejection when the input read failed.
+
+
+## Finding F-20261020-34 — Early Entry variant opens the trade before persisting its decision ledger row
+**Status:** source-code fact; orphaned-trade frequency unknown. **Confidence:** high.
+
+For B/C variants, `early-entry-variants` first inserts a paper trade and then separately inserts the corresponding `early_entry_variant_decisions` row. These writes are not wrapped in a transaction in the reviewed function. If the trade insert succeeds but the decision insert fails, the paper position can exist without its expected linked decision record; retry behavior and duplicate-key handling do not by themselves make the two writes atomic.
+
+Source: [early-entry-variants at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/early-entry-variants/index.ts), [decision-ledger schema migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261014210000_early_entry_parallel_paper_variants.sql).
+
+Research rule: reconcile variant-tagged trades to decision rows by `entry_metadata.signal_key`, `trade_id`, and `decision_key`; separately report missing decision rows and decisions whose trade_id no longer resolves.
+
+
+## Finding F-20261020-35 — Candle collector's candidate universe is seeded from recent 5m indicator rows
+**Status:** source-code fact; universe omissions unknown. **Confidence:** high.
+
+`market-candle-collector` selects symbols from `indicator_snapshots` where timeframe is `5m` and `created_at` is within the last hour, limited to 500 rows, then fetches only 5m and 15m candles for those symbols. Thus an asset absent from the recent 5m indicator snapshot sample cannot be refreshed by this collector during that run, even if it is in the wider tracked-asset universe. This can create a coverage feedback loop if downstream early-entry candidates require those candles.
+
+Source: [market-candle-collector at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/market-candle-collector/index.ts).
+
+Research rule: compare the collector's selected symbol set against the intended tracked/watchlist universe and downstream candidate universe; report missing-symbol counts, age, and reason. Do not assume `stored` means broad market coverage.
+
+
+## Finding F-20261020-36 — Research archive cleanup is explicitly paused in the reviewed migration sequence
+**Status:** source migration fact; production migration application is unverified. **Confidence:** high for source intent, none for deployed state.
+
+Migration `20261020182000_research_archive_capture_gate.sql` sets `research_archive_control.allow_archive=false` and records that archive writes and source deletion are paused pending storage and evidence-value review; it also drops `research_cases_source_idx`. This is a source-level safety posture, not proof of the live database's current control value or applied migration history. It also means any archive/retention workflow must not be described as actively archiving unless runtime state confirms it.
+
+Source: [archive capture gate migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql).
+
+Research rule: verify applied migration history and control-row values before any archive claim; keep source deletion disabled and avoid re-enabling archive writes without explicit review of storage headroom and evidence completeness.
