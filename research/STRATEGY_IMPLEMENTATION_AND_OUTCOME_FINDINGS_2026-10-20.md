@@ -289,3 +289,23 @@ The resolver selects open rows in fixed batches of 100 using `created_at` orderi
 Source: [variant-resolver at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/variant-resolver/index.ts).
 
 Research rule: measure oldest eligible age, selection frequency, time-to-resolution, and never-selected eligible rows separately for matured and regular cohorts. Do not infer full resolver coverage from successful invocations or aggregate candidate counts.
+
+
+## Finding F-20261020-28 — Variant panel silently omits strategy names outside its fixed preset list
+**Status:** UI aggregation fact at reviewed source revision; whether unknown strategy rows exist in current V3 results is unknown. **Confidence:** high.
+
+The V3 RPC groups by the database's `strategy_name`, and the panel builds an aggregation map from every returned row. However, its rendered strategy list and total counters iterate only the hard-coded `PRESET_ORDER` list. A newly introduced, renamed, or unexpected strategy name returned by the RPC can therefore be present in the response but omitted from visible rows and `totalObserved` without an explicit warning. This is a schema/UI coverage risk, not proof that current production rows are being omitted.
+
+Source: [Variant Comparison panel at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx), [V3 RPC migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql).
+
+Research rule: compare distinct RPC `strategy_name` values with `PRESET_ORDER`; report unknown names explicitly and keep raw RPC totals separate from preset-only display totals.
+
+
+## Finding F-20261020-29 — The rolling seven-day V3 panel compares cohorts with different maturity
+**Status:** cohort-window fact; effect size requires outcome-age analysis. **Confidence:** high.
+
+The panel queries V3 performance for `days: 7`, and the RPC filters by `created_at >= now() - 7 days`, not by a fixed entry cohort with uniform follow-up or by resolution time. It displays open cases separately, but its resolved win/loss/expired and PnL totals can still reflect unequal outcome maturity: newer entries have had less time to hit TP/SL or reach expiry, while older entries have had more resolution opportunity. Strategy entry rates and the age distribution of unresolved cases can therefore influence a live rolling comparison.
+
+Sources: [Variant Comparison panel](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx), [V3 RPC migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql).
+
+Research rule: pair rolling-window results with entry-age and maturity coverage. For strategy comparisons, use matched entry windows and a common minimum follow-up horizon where possible; keep open cases censored rather than scoring them as losses or zero.
