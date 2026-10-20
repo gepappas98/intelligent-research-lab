@@ -173,3 +173,36 @@ A later read-only SQL query supersedes the prior byte-size and retention counts 
 - No production records have been exported to a secure artifact or copied to IRL. No rows were deleted; no schema, function, policy, cron, or trading behavior was changed by these checks.
 
 The remaining next step is still destination identity verification and a verified secure export plan—not migration or deletion.
+
+## 9. Research experiment registry seeds — historical configuration, not live gates
+
+The following preserves specific prior experiments for later, isolated evaluation. These are **historical configurations/hypotheses**, not instructions to change source-app trading behavior and not claims of predictive edge.
+
+### Early Entry transition experiment
+
+- Research question: can a bear → neutral → accumulation transition be detected before the broader regime is already bullish?
+- Candidate features: short-window technical breadth deltas; BTC regime; 5m/15m/1h/4h/1d alignment; OHLCV and taker-buy imbalance when historically available; Council signals/lessons; asset-specific sentiment snapshots; whale-flow transition context.
+- Event Flow/news transmission is an optional corroborating booster, not a hard eligibility gate.
+- Compare separately versioned paper variants. Preserve the requested purple UI label as presentation metadata only; do not use color as a cohort identity.
+- Historical observation: an earlier strict run had zero entries while breadth was bearish (6 bullish / 0 neutral / 44 bearish) and a market_regime_score was NULL because a function read a body field while the orchestrator sent an empty object. Treat missing score and no-entry runs as diagnostic states, not evidence that the hypothesis failed.
+
+### RSS/news-to-whale-flow experiment
+
+- Prior design preference was free, no-login/no-API RSS sources, including Cointelegraph, The Defiant and DL News, plus a larger feed set (~20 sources), matched against the dynamic asset watchlist.
+- Historical Flow Lab Paper OPEN conditions were: fresh per-asset RSS sentiment ≥ +0.25; confidence ≥ 0.55; whale-flow accumulation score ≥ +0.10; fresh Binance Spot price; 6-hour per-symbol cooldown. One observed initial run opened zero positions. Reconfirm the source configuration and code before reproducing.
+- Repeated relevant mentions may raise a corroboration score but are not independent proof of direction or causality. Preserve feed URL, publication/observation/ingestion timestamps, deduplication key and asset match.
+- Reddit was rejected as the preferred per-asset sentiment source because the observed coverage/login constraints made it unsuitable for this workflow. Do not treat this preference as a universal statement about Reddit data quality.
+
+### Micro-timeframe and whale-flow regime experiments
+
+- Prior micro-timeframe work added 5m/15m snapshots with Binance as primary and Bybit fallback, alongside 1h/4h/1d. Preserve per-source freshness and fallback provenance.
+- A proposed Sideways-regime entry hypothesis required strong bullish 5m/15m/1h alignment plus whale-flow score above +5%. This remains an experiment to test out-of-sample, not a universal rule.
+- A prior whale-shock detector used approximate floors of $50,000 for a 60+ mid-cap set and $30,000 for a larger 150+ alt/gem set, excluding BTC/ETH/SOL from the latter. Store the actual symbol universe and threshold version per observation; do not apply these thresholds retroactively to data that did not record them.
+- A known regime-scoring failure mode: approximately +$10,000 net flow on ~$80.942 million total flow was mapped to a positive score around +0.040 and 100% Sideways because a sign-based transform treated a tiny net imbalance as meaningful. This is a calibration/unit-scaling issue to test explicitly; a positive sign alone is not evidence of directional strength.
+
+### Council-learning provenance
+
+- The source app generates post-mortems for closed paper trades and fetches a bounded number of lessons per symbol. Lessons are outcome-derived and must be timestamped as later knowledge; never feed a trade's own post-mortem back into its entry-time feature set.
+- Keep source trade ID, lesson generation time, source strategy/cohort, and whether the provenance lookup succeeded. Unresolved lesson links remain unresolved; do not automatically relink or delete them.
+
+IRL should represent each experiment with immutable configuration/version, predeclared outcome horizon, eligibility/exclusion rules, point-in-time feature availability, and a chronological out-of-sample evaluation plan. Do not connect these experiment definitions to the source app's live scorer or automatic strategy switch.
