@@ -2,13 +2,9 @@
 set -Eeuo pipefail
 umask 077
 
-# Exports real historical rows into the private repository, one compressed dump
-# per public table. It does not import, reset, or delete anything.
+# Export the reviewed historical-research allowlist only. Read-only against source.
 # Requires psql, pg_dump, sha256sum, git.
-# Run from repo root:
-# SOURCE_DATABASE_URL='...' SOURCE_PROJECT_REF='yckewtpfttvwiptmmrfq' bash scripts/export-versioned-research-data.sh
-# The connection string must be supplied privately; never commit it.
-
+# SOURCE_DATABASE_URL must be supplied privately; never commit it.
 EXPECTED_REF="yckewtpfttvwiptmmrfq"
 : "${SOURCE_DATABASE_URL:?Set SOURCE_DATABASE_URL privately}"
 : "${SOURCE_PROJECT_REF:?Set SOURCE_PROJECT_REF explicitly}"
@@ -28,42 +24,62 @@ IDENTITY="$(psql "$SOURCE_DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 -c "select c
 printf 'source_ref=%s\nsource_identity=%s\nexported_at_utc=%s\nrepository_commit=%s\n' "$SOURCE_PROJECT_REF" "$IDENTITY" "$STAMP" "$(git rev-parse HEAD)" > "$SNAP/metadata/manifest.txt"
 psql "$SOURCE_DATABASE_URL" -X -A -F $'\t' -t -v ON_ERROR_STOP=1 -c "select tablename from pg_tables where schemaname='public' order by tablename" > "$SNAP/metadata/public-tables.tsv"
 
-# Exclude only obvious credential/account/security material and mutable live controls.
-# Record exclusions so the export boundary is auditable.
+# Deliberate research allowlist. Add a table only after reviewing its schema/content.
+TABLES=(
+  composite_signals strategy_variant_signals strategy_shadow_diagnostics
+  accumulation_shadow_observations early_entry_variant_decisions repeated_buy_research_ledger
+  trades council_signals council_lessons asset_sentiment_snapshots asset_social_snapshots
+  asset_flow_snapshots asset_price_snapshots market_candles whale_alerts
+  whale_flow_snapshots whale_flow_transitions whale_flow_transition_context
+  whale_flow_shock_followups event_flow_study_snapshots research_evidence research_cases
+  pipeline_runs trade_alerts indicator_snapshots
+)
 : > "$SNAP/metadata/included-tables.txt"
-: > "$SNAP/metadata/excluded-tables.txt"
+: > "$SNAP/metadata/missing-allowlisted-tables.txt"
+: > "$SNAP/metadata/excluded-public-tables.txt"
 : > "$SNAP/metadata/row-counts.tsv"
-while IFS= read -r table; do
-  [[ -n "$table" ]] || continue
-  if [[ "$table" =~ (^|_)(secret|secrets|credential|credentials|api_key|api_keys|private_key|access_token|refresh_token|webhook_secret)(_|$) ]] || [[ "$table" =~ ^(user_profiles|profiles|user_settings|live_execution_config|execution_credentials|exchange_credentials|scheduler_state|cron_state)$ ]]; then
-    printf 'public.%s\n' "$table" >> "$SNAP/metadata/excluded-tables.txt"
+printf 'table\trows\tbytes\tsha256\n' > "$SNAP/metadata/row-counts.tsv"
+
+for table in "${TABLES[@]}"; do
+  if ! grep -Fxq "$table" "$SNAP/metadata/public-tables.tsv"; then
+    printf 'public.%s\n' "$table" >> "$SNAP/metadata/missing-allowlisted-tables.txt"
     continue
   fi
-  printf 'public.%s\n' "$table" >> "$SNAP/metadata/included-tables.txt"
+  # Exclude any unexpected credential-like table name even if added to the allowlist.
+  if [[ "$table" =~ (^|_)(secret|secrets|credential|credentials|api_key|api_keys|private_key|access_token|refresh_token|webhook_secret)(_|$) ]]; then
+    printf 'public.%s\n' "$table" >> "$SNAP/metadata/excluded-public-tables.txt"
+    continue
+  fi
   outfile="$SNAP/tables/public.$table.dump"
   pg_dump "$SOURCE_DATABASE_URL" --data-only --format=custom --no-owner --no-privileges --table="public.$table" --file="$outfile"
   size="$(wc -c < "$outfile" | tr -d ' ')"
   if (( size >= 95000000 )); then
-    echo "STOP: public.$table dump is $size bytes; partition it before committing (GitHub file limit safety margin)." >&2
+    rm -f "$outfile"
+    echo "STOP: public.$table dump reached $size bytes; partition before committing (GitHub file-limit safety margin)." >&2
     exit 30
   fi
   count="$(psql "$SOURCE_DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 -c "select count(*) from public.\"$table\"")"
-  printf 'public.%s\t%s\t%s\n' "$table" "$count" "$size" >> "$SNAP/metadata/row-counts.tsv"
-done < "$SNAP/metadata/public-tables.tsv"
+  checksum="$(sha256sum "$outfile" | awk '{print $1}')"
+  printf 'public.%s\n' "$table" >> "$SNAP/metadata/included-tables.txt"
+  printf 'public.%s\t%s\t%s\t%s\n' "$table" "$count" "$size" "$checksum" >> "$SNAP/metadata/row-counts.tsv"
+done
 
+# Schema reference is for review/rebuild, not a blind migration into any existing DB.
 pg_dump "$SOURCE_DATABASE_URL" --schema-only --schema=public --format=custom --no-owner --no-privileges --file="$SNAP/public-schema.dump"
 (
   cd "$SNAP"
   find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
 )
 cat > "$SNAP/RESTORE.md" <<'EOF'
-Private versioned historical research snapshot. Every included public table has its own
-data-only PostgreSQL custom dump; public-schema.dump is schema reference, not a blindly
-applicable migration. Restore only into a newly created, verified, isolated IRL Supabase
-project after reviewing schema compatibility. Reconcile row counts and temporal/cohort
-invariants. Never restore into the canonical source project. Do not commit credentials.
+Private versioned historical research snapshot. This snapshot contains only the reviewed
+research allowlist listed in metadata/included-tables.txt; missing tables are recorded.
+Each table is a data-only PostgreSQL custom dump. public-schema.dump is a schema reference,
+not a blindly applicable migration. Before restoring, inspect schema and data for secrets,
+create a NEW isolated destination, restore there only, then reconcile checksums, row counts,
+primary-key uniqueness, timestamp ranges, strategy/cohort identifiers, and unresolved outcomes.
+Never restore into the canonical source project. No import, commit, push, or deletion occurs here.
 EOF
 chmod -R go-rwx "$SNAP"
 echo "Export snapshot created at $SNAP"
-echo "Review excluded tables, checksums, row counts, and any size guard before committing."
-echo "This script does not commit, push, import, or delete. Commit the snapshot only after review."
+echo "Review included/missing tables, pipeline_runs contents, counts, time ranges and checksums before committing."
+echo "This script does not commit, push, import, or delete. Repeated full snapshots grow Git history; do not schedule full snapshots as automatic refreshes."
