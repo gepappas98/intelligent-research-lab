@@ -120,3 +120,17 @@ Read-only inspection of the deployed `refresh_research_knowledge_cases(integer)`
 - The refresh can update case outcome, PnL, timestamps and evidence links in place as source values change, while entry evidence is inserted once by fingerprint.
 
 These behaviors do not by themselves prove individual records are wrong, but they mean the archive's bitemporal and maturity guarantees must not be assumed from the schema. Before any transfer, IRL must preserve the raw source timestamps and label inferred availability/maturity as unverified unless the upstream producer/evaluator contract confirms them. Do not copy these archive fields as authoritative event-time labels.
+
+
+## 9. Fresh live snapshot — 2026-10-20 05:31 UTC
+
+This newer read-only query supersedes the earlier size and eligible-source counts in Section 1:
+
+- Database size: **505,736,339 bytes = 505.74 MB (decimal) / 482.31 MiB (binary)**.
+- Archive rows: evidence 3,019; cases 3,000; findings 0; control 1.
+- Retention preflight: **30,084 eligible, 0 archived, 30,084 missing evidence**; status remains `incomplete`.
+- Missing evidence by source: `asset_news_events` 363; `asset_flow_snapshots` 9,450; `whale_flow_snapshots` 1,416; `asset_price_snapshots` 9,450; `whale_flow_transitions` 545; `event_flow_transmissions` 1; `asset_sentiment_snapshots` 7,773; `whale_flow_shock_followups` 541; `whale_flow_transition_context` 545.
+- Control row remains `allow_archive=false`, `allow_source_delete=false`. The deployed cleanup function was inspected read-only and was not invoked.
+- Archive table total relation sizes combine to 3,661,824 bytes (~3.49 MiB), so their removal alone cannot materially resolve overall database capacity pressure.
+
+No rows were deleted and no source tables, controls, policies, functions, cron jobs or trading logic were changed.
