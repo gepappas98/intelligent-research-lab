@@ -489,3 +489,13 @@ The `event-flow-paper-open` function queries recent RSS sentiment with `limit(10
 Source: [event-flow-paper-open](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/event-flow-paper-open/index.ts).
 
 Research rule: compare exact eligible row counts and distinct assets with each cap, measure per-asset coverage, and classify absent inputs as `no recent row` versus `asset omitted by capped sample` wherever evidence permits.
+
+
+## Finding F-20261020-48 — Council lesson generators classify and store PnL from different trade fields
+**Status:** source-code fact; number of affected lessons unknown. **Confidence:** high.
+
+The normal pipeline generator `src/lib/council-learning.ts` computes `pnl_pct`, win/loss/breakeven outcome, prompt PnL, and `realized_pnl` from legacy `trades.pnl`; it does not select `net_pnl`. The separate `supabase/functions/council-lessons/index.ts` calculates from `net_pnl ?? pnl`. If a trade's fee-adjusted `net_pnl` differs from `pnl`, the two generation paths can assign different outcomes and lesson PnL for the same `source_trade_id`. This makes pooled Council lesson win counts/PnL potentially non-homogeneous unless the generating path is retained as provenance.
+
+Sources: [pipeline Council generator](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/council-learning.ts), [Council lessons Edge Function](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/council-lessons/index.ts).
+
+Research rule: compare `pnl` versus `net_pnl` and lesson outcome/realized_pnl by `source_trade_id`; segment results by generation path where provenance exists. Do not retroactively rewrite lessons without an explicit, audited reconciliation.
