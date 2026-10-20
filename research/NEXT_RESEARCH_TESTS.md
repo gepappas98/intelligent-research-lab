@@ -43,3 +43,7 @@ Run these in order when the user requests a new research batch. This is a conclu
 27. **Gross-versus-net V3 counterfactual:** document the current gross-return definition and, only where fee assumptions are evidenced, compute a separate net-return sensitivity with explicit assumptions. Keep original `pnl_pct` unchanged; don't compare gross V3 directly with fee-adjusted paper PnL as if identical.
 
 28. **Resolver batch starvation and selection coverage:** for matured and regular open cohorts, reconstruct selected IDs per invocation and measure oldest age, repeat selections, time-to-resolution, and never-selected rows under changing counts. If historical per-ID audit is unavailable, mark coverage unknown; no production changes.
+
+29. **V3 strategy-name coverage:** list all distinct strategy names returned by the V3 RPC and compare them with the panel's fixed `PRESET_ORDER`; quantify rows/cases/PnL belonging to names not rendered. Read-only; no automatic rename or reclassification.
+
+30. **V3 maturity-matched comparison:** report entry-age distribution, resolved/open/expired/ambiguous coverage by strategy, and results on matched entry cohorts with a common follow-up horizon. Keep open outcomes censored and preserve the original rolling-seven-day view as a separate descriptive metric.
