@@ -635,3 +635,20 @@ Research rule: prioritize read-only per-stage coverage and freshness measurement
 Source: [archive status function in the capture-gate migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql).
 
 Research rule: report the latest capture timestamp for the explicit retention-source set separately from general research evidence. Never present `last_archive_at` alone as proof of archival activity.
+
+
+## Finding F-20261020-65 — Live storage guard is latched as triggered, but all listed cron jobs are currently active
+**Status:** direct read-only production inspection of private guard state, function definition and `cron.job`, approximately 2026-10-20 15:31 UTC. **Confidence:** high.
+
+`private.storage_capacity_guard_state` records `triggered_at=2026-10-11 03:56:00 UTC`, `measured_bytes=480,021,651`, `threshold_bytes=480,000,000`, and lists six jobs as paused, including `trading-pipeline-orchestrator`. Yet the live `cron.job` rows show all six listed jobs active: orchestrator, event-flow-lab-collector, event-flow-lab-discovery, social-source-collector-sweep, research-whale-wave-readiness, and research-lab-data-readiness. The current database is 529,591,443 bytes (505.06 MiB), above the guard threshold. The active `private.enforce_storage_capacity_guard()` function returns `already_paused` immediately whenever `triggered_at IS NOT NULL`; it does not reconcile the current active state of those jobs. Thus the persisted guard state no longer matches actual cron state, and the guard's one-time latch would not re-disable reactivated jobs.
+
+The same guard's configured list excludes `market-candle-collector` and `early-entry-variants`; both are currently active at 10-minute intervals. This is a control-state discrepancy, not authorization to pause jobs in this research transfer.
+
+Research rule: do not alter cron jobs or reset guard state here. Preserve this as a high-priority operational issue for explicit owner decision; any remediation should reconcile the intended pause policy, current job state and guard re-entry semantics.
+
+## Finding F-20261020-66 — Live database exceeds the 480,000,000-byte storage threshold; largest tables are research/telemetry-heavy
+**Status:** direct read-only production size snapshot, approximately 2026-10-20 15:31 UTC. **Confidence:** high for reported relation sizes.
+
+`pg_database_size(current_database())` reports 529,591,443 bytes (505.06 MiB), 49,591,443 bytes above the configured 480,000,000-byte threshold. Largest measured table-plus-index footprints include `strategy_shadow_diagnostics` 95.98 MiB, `composite_signals` 78.63 MiB, `strategy_variant_signals` 41.99 MiB, `pipeline_runs` 36.30 MiB, `whale_alerts` 35.09 MiB, `market_candles` 30.34 MiB, and `accumulation_shadow_observations` 25.51 MiB. `research_evidence` is 1.95 MiB and `research_cases` 1.48 MiB; the archive backlog itself is not the largest measured storage consumer yet.
+
+Research rule: prioritize read-only per-table/index size trends and retention/value analysis. Do not delete source rows, change retention, or pause cron as part of this transfer. Note that `pg_stat_user_tables` tuple estimates were inconsistent with earlier exact counts and should not be used as authoritative row counts.
