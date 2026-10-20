@@ -89,3 +89,23 @@ The reviewed function evaluates missing/stale inputs first (no open if any of RS
 
 - Source: [event-flow-paper-open/index.ts at 4e55ba1](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/event-flow-paper-open/index.ts)
 - Next test: report decision-status counts by symbol and time window; for each opened position join the saved sentiment/flow/price timestamps and exit outcome; compare accepted vs rejected opportunities with a defined counterfactual. Do not interpret rejected candidates as wins or losses.
+
+## Finding F-20261020-09 — Micro-timeframe gate is asymmetric; pass is not the same as confirmed bounce
+**Status:** code behavior verified; outcome impact unmeasured. **Confidence:** high for implementation, no profitability inference.
+
+At source commit 4e55ba120f37fe959d8dd4256ee6536cedfe5253, evaluateMicroTimeframeGate reads 5m/15m/1h trend labels. It rejects when bears outnumber bulls, including a specific rejection for at least two bearish and zero bullish readings. It marks a confirmed bounce only with at least two bullish readings and zero bearish readings. Mixed/balanced states can still pass as balanced or supportive, so a pass alone does not imply strong bullish confirmation.
+
+A separate BTC-downtrend entry gate is stricter: when BTC downtrend is confirmed, BUY requires at least two bullish micro readings and zero bearish readings. If BTC data is missing, code does not infer a downtrend. In a qualifying BTC-downtrend + positive whale-flow divergence, the adjusted shadow regime can reject even after the micro bounce. These are distinct gates and must be measured separately rather than summarized as one generic MTF condition.
+
+**Research implication:** log each gate independently (micro trend, BTC downtrend, whale divergence) with input freshness, exact timeframe states, allow/reject reason, and linked eventual trade outcome. Offline ablation should compare current rule against frozen alternatives on a later, non-overlapping window after fees; do not relax a gate from code inspection alone.
+
+Sources: [micro-trend-gate.ts](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/trade-executor/_shared/micro-trend-gate.ts), [regime-divergence.ts](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/trade-executor/_shared/regime-divergence.ts).
+
+## Finding F-20261020-10 — Benchmark RPCs encode cohort boundaries in source fingerprints
+**Status:** source contract verified; production deployment/runtime parity not verified. **Confidence:** high for migration contents.
+
+Migration 20261018120000_variant_benchmark_v3.sql defines the general get_variant_performance function by excluding source fingerprints prefixed v2| and v3| (therefore it is not the V3 cohort), while get_variant_performance_v3 selects only fingerprints prefixed v3|. Both classify win/loss/expired as resolved and sum PnL for all three, while open cases are counted separately. This is a source-level cohort contract, not evidence that a particular deployed dashboard is currently querying the expected function.
+
+**Research implication:** every exported benchmark snapshot must record the exact RPC/function name, date window, source-fingerprint cohort rule, outcome categories, PnL unit, and observation timestamp. Never label results V3 merely because they came from the generic function, and do not silently exclude expired cases. Confirm deployed RPC and UI wiring separately before comparing historical panels.
+
+Source: [20261018120000_variant_benchmark_v3.sql](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql).
