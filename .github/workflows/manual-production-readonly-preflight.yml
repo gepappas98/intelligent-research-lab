@@ -27,7 +27,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
 
-      - name: Verify read-only connection and record baseline
+      - name: Validate endpoint metadata without exposing credentials
         env:
           PROD_READONLY_DATABASE_URL: ${{ secrets.PROD_READONLY_DATABASE_URL }}
         shell: bash
@@ -37,15 +37,102 @@ jobs:
             echo "::error::Missing Actions secret PROD_READONLY_DATABASE_URL"
             exit 1
           }
+          python3 - <<'PY'
+          import os, sys
+          from urllib.parse import urlsplit, unquote
+          raw = os.environ["PROD_READONLY_DATABASE_URL"]
+          try:
+              u = urlsplit(raw)
+              username = unquote(u.username or "")
+              database = (u.path or "").lstrip("/")
+              expected_host = "db.yckewtpfttvwiptmmrfq.supabase.co"
+              if u.scheme not in ("postgres", "postgresql"):
+                  raise ValueError("unsupported connection scheme")
+              if (u.hostname or "").lower() != expected_host:
+                  raise ValueError("connection host does not match canonical production project")
+              if username != "irl_prod_readonly":
+                  raise ValueError("connection must authenticate as irl_prod_readonly")
+              if database != "postgres":
+                  raise ValueError("unexpected database name")
+              if not u.password:
+                  raise ValueError("password is missing")
+              if u.port not in (None, 5432):
+                  raise ValueError("unexpected database port")
+              print("Endpoint metadata validated: canonical project host, database=postgres, role=irl_prod_readonly.")
+          except Exception as e:
+              print(f"::error::Connection metadata validation failed: {e}", file=sys.stderr)
+              sys.exit(1)
+          PY
+
+      - name: Verify database identity, read-only role, and record baseline
+        env:
+          PROD_READONLY_DATABASE_URL: ${{ secrets.PROD_READONLY_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
           export PGCONNECT_TIMEOUT=10
           export PGSSLMODE=require
+          export PGOPTIONS="-c default_transaction_read_only=on"
           psql "$PROD_READONLY_DATABASE_URL" --no-psqlrc --set=ON_ERROR_STOP=1 --tuples-only --no-align <<'SQL' | tee production-preflight.txt
           BEGIN TRANSACTION READ ONLY;
+          DO $verify$
+          DECLARE
+            v_role text := current_user;
+            v_db text := current_database();
+            v_host text := coalesce(inet_server_addr()::text, '');
+            v_read_only text := current_setting('transaction_read_only');
+            v_super boolean;
+            v_createdb boolean;
+            v_createrole boolean;
+            v_replication boolean;
+            v_write_privileges bigint;
+          BEGIN
+            IF v_role <> 'irl_prod_readonly' THEN
+              RAISE EXCEPTION 'Unexpected database role: %', v_role;
+            END IF;
+            IF v_db <> 'postgres' THEN
+              RAISE EXCEPTION 'Unexpected database name: %', v_db;
+            END IF;
+            IF v_read_only <> 'on' THEN
+              RAISE EXCEPTION 'transaction_read_only must be on; got %', v_read_only;
+            END IF;
+            SELECT rolsuper, rolcreatedb, rolcreaterole, rolreplication
+              INTO v_super, v_createdb, v_createrole, v_replication
+              FROM pg_roles WHERE rolname = current_user;
+            IF coalesce(v_super,true) OR coalesce(v_createdb,true)
+               OR coalesce(v_createrole,true) OR coalesce(v_replication,true) THEN
+              RAISE EXCEPTION 'Read-only role has elevated role attributes';
+            END IF;
+            SELECT count(*) INTO v_write_privileges
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public'
+              AND c.relkind IN ('r','p','v','m','f')
+              AND (
+                has_table_privilege(current_user, c.oid, 'INSERT')
+                OR has_table_privilege(current_user, c.oid, 'UPDATE')
+                OR has_table_privilege(current_user, c.oid, 'DELETE')
+                OR has_table_privilege(current_user, c.oid, 'TRUNCATE')
+                OR has_table_privilege(current_user, c.oid, 'REFERENCES')
+                OR has_table_privilege(current_user, c.oid, 'TRIGGER')
+              );
+            IF v_write_privileges <> 0 THEN
+              RAISE EXCEPTION 'Role has write/DDL-adjacent table privileges on % public relations', v_write_privileges;
+            END IF;
+            IF has_schema_privilege(current_user, 'public', 'CREATE') THEN
+              RAISE EXCEPTION 'Role has CREATE privilege on public schema';
+            END IF;
+            RAISE NOTICE 'Identity and read-only privilege checks passed';
+          END
+          $verify$;
           SELECT json_build_object(
             'captured_at_utc', now() AT TIME ZONE 'UTC',
+            'project_ref', 'yckewtpfttvwiptmmrfq',
             'database', current_database(),
+            'current_user', current_user,
             'server_version', current_setting('server_version'),
-            'transaction_read_only', current_setting('transaction_read_only')
+            'transaction_read_only', current_setting('transaction_read_only'),
+            'server_address_present', inet_server_addr() IS NOT NULL
           );
           SELECT json_build_object('table','trades','count',count(*)) FROM public.trades;
           SELECT json_build_object('table','composite_signals','count',count(*)) FROM public.composite_signals;
