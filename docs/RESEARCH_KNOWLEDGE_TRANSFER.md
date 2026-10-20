@@ -129,3 +129,19 @@ The list is a starting point, not a guarantee that all tables exist in the same 
 3. Build a field-level dictionary and data contract before designing tables.
 4. Create a small, bounded sample fixture with synthetic or sanitized records and tests; no bulk production copy.
 5. Only after database identity and isolation are proven, propose an IRL-specific schema migration on a branch for review.
+
+
+## 8. Read-only containment snapshot of the wrong repository (2026-10-20)
+
+This snapshot was taken after closing wrong-repository PR #133. It is for incident containment, not a transfer confirmation.
+
+- Canonical source database size: **504,573,075 bytes (481 MB)** at the query time; this is above the previously discussed 480 MB warning threshold. Re-measure before attributing growth to any single change.
+- `research_evidence`: 3,019 rows; `research_cases`: 3,000 rows; `research_findings`: 0 rows; `research_archive_control`: 1 row.
+- Research tables occupy approximately 1,992 kB + 1,512 kB + 40 kB + 32 kB respectively (table+index relation size reported by PostgreSQL).
+- The control row currently reports both `allow_archive=false` and `allow_source_delete=false`.
+- 551 V3 cases are unresolved. Do not call them failures or mature outcomes without verifying their entry timestamps and the 72-hour horizon.
+- Evidence currently references 199 trades, 19 composite signals and 2,801 strategy-variant signals; 0 pipeline-run payloads were copied into `research_evidence`. These are source-linked summaries, not proof that the complete research corpus was transferred to IRL.
+- The `research-data-retention` cron remains active at `17 3 * * *` and calls `cleanup_research_data(72,168,false)`. The function's current control row is fail-closed with archive and source deletion disabled; do not assume a cron job is harmless without checking the deployed function body and controls again.
+- Existing readiness crons `research-lab-data-readiness` (every 15 minutes) and `research-whale-wave-readiness` (every 5 minutes) are separate pre-existing research collectors/alerts; do not disable them as part of archive cleanup without tracing their purpose.
+
+**Removal decision:** do not drop the four research tables, revert migrations, or disable scheduled jobs blindly. They contain 3,019 evidence rows and 3,000 cases, and the database is close to/over the storage warning line. First export/verify the minimum required metadata, trace all function/policy/cron dependencies, identify the exact changes attributable to the mistaken work, and prepare a reversible rollback plan. The actual record-level transfer into IRL remains blocked until IRL's isolated database is positively identified. No source rows were deleted by the read-only checks.
