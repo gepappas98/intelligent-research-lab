@@ -72,3 +72,9 @@ Observed current timestamp ranges in core tables are recent. This does not prove
 - [ ] Cohort-specific reproducibility report regenerated from imported records.
 - [ ] TCC source data remains unchanged.
 - [ ] No credentials or raw production rows committed to GitHub.
+
+## 6. Latest read-only source retention-control check — 2026-10-20
+
+The current `public.research_archive_control` row (`id=1`) was queried directly from the canonical source project. It reports `allow_archive=false`, `allow_source_delete=false`, with note “Archive and source deletion paused pending storage and evidence-value review” and `updated_at=2026-10-19 22:26:58+00`. This confirms the two explicit gates are currently off at the time of the query. The cleanup function definition also checks `allow_archive` before archive work and returns without deleting when archival is disabled; source deletes additionally require `allow_source_delete=true` and archive evidence checks. This is a current control-state observation, not proof that no older cleanup or migration ever removed rows.
+
+The migration inventory also includes `20261008100734_clean_invalid_sentiment_research_data` and `20261008101017_remove_zero_sentiment_rows`, so historical source data has been intentionally filtered in the past. The final transfer report must distinguish (a) rows currently present and transferred, (b) rows represented only by archive evidence, and (c) historical records whose previous existence is documented by migration history but which are no longer available in source tables. Do not reconstruct or fabricate missing rows.
