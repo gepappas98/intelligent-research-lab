@@ -1,97 +1,71 @@
-# Research evidence → matching → conclusions → intelligence
+# Research evidence → conclusions → IRL intelligence
 
-## Intended operating model
+## Purpose and scope
+IRL stores **research knowledge**, not a copy of the source database. Source records remain in the canonical research system. When the user chooses a manual refresh, targeted read-only queries and code/history review derive compact findings. Only conclusions, outcomes, implementation learnings and provenance are transferred.
 
-The source datasets are the evidence we repeatedly process. They are not themselves the intelligence conclusions. Each matching/analysis run compares source records, produces reproducible observations, and records conclusions that are then made available to the IRL intelligence knowledge layer.
+## Operating model
 
 ```text
-Original source records (immutable, row-preserving)
+Existing source evidence + code/commit history (remain at source)
         │
         ▼
-Matching / analysis run (versioned method + parameters)
-        │
-        ├── Run manifest: exact source IDs, snapshot checksums, time window,
-        │   code revision, parameters, execution timestamp
+Manual, targeted analysis (named cohort, version, window, assumptions)
         │
         ▼
-Observations and comparison results (reproducible, evidence-linked)
+Measured observations + limitations + counterevidence
         │
         ▼
-Conclusion records (append-only; uncertainty and counterevidence included)
+Append-only conclusion / lesson record
         │
         ▼
-IRL Intelligence knowledge layer (searchable, versioned, source-linked)
+IRL intelligence index and strategy knowledge
         │
         ▼
-New hypotheses / next matching run (feedback loop)
+Next falsifiable hypothesis (user-triggered manual run)
 ```
 
-## Responsibilities of each layer
+No full database dump, table mirror, bulk raw JSON, cron, scheduled automation or recurring refresh is part of this workflow.
 
-### 1. Original source records
-- Preserve original values, JSON payloads, timestamps, identifiers, and row relationships exactly as received/stored.
-- Do not replace source rows with summaries or overwrite them with interpretation.
-- Maintain a stable source identity and a checksum for each exported chunk/snapshot.
-- A corrected source record is represented by the source system's own updated state plus export/version metadata; preserve prior snapshots when they are needed to reproduce past conclusions.
+## What each conclusion must retain
+- Stable `conclusion_id` and UTC recorded timestamp.
+- Source project ref; source table and record/run IDs when available; code commit/PR; matching/scorer version.
+- Exact cohort (Legacy/V2/V3/paper/shadow/live), timeframe and frozen evaluation window.
+- Hypothesis and test/control/counterfactual.
+- Observed facts separated from interpretation.
+- Sample count, wins/losses/expiry/open/unresolved counts, PnL unit, mean/total net PnL, fees/slippage and drawdown when available.
+- Implementation status: proposed, implemented, deployed, observed, replicated, contradicted or retired. Do not equate implementation with success.
+- Counterevidence, missingness, confidence/limitations, failure condition and next falsification test.
+- Links to earlier or later conclusions that confirm, revise or contradict this finding.
 
-### 2. Matching/analysis run
-Every run must be reproducible. Record:
-- `matching_run_id`, run timestamp, code commit, algorithm/version and parameters.
-- Exact source snapshot/checksums and the source record IDs actually used.
-- Event-time, observed-time, available-time, decision-time and entry-time boundaries where relevant.
-- Matching rules, joins, deduplication rules, exclusions and missing-data handling.
-- Output row counts and checksums.
+If an original run ID, precise window or source identity is unavailable, mark it as missing/provisional. Never invent provenance to make a result appear reproducible.
 
-A run must never silently mix Legacy, V2 and V3 cohorts or use information that was unavailable at the historical decision time.
+## Evidence classes and interpretation
+- Historical/shadow benchmark is not realized paper or live profit.
+- Open-position PnL is not realized profit.
+- Paper trades and live trades are separate.
+- Legacy, V2 and V3 cohorts must never be blended without an explicitly justified common protocol.
+- Null/unresolved outcomes are not zero, wins, or losses.
+- Preserve adverse findings, failed triggers, defects and abandoned ideas; negative evidence is research knowledge.
+- Correlation does not establish causality. Separate discovery samples from out-of-sample confirmation.
+- Generated synthesis must resolve to conclusion IDs and evidence provenance; it must not overwrite the underlying ledger.
 
-### 3. Observations and comparison results
-Store measured facts separately from interpretation. Include both supporting and contradicting observations, sample sizes, missingness, unresolved cases and uncertainty. Preserve enough intermediate output to reproduce the conclusion without rerunning an undocumented manual process.
+## IRL organization
+- `research/RESEARCH_FINDINGS_AND_INTELLIGENCE_LEDGER_2026-10-20.md`: consolidated findings and implementation lessons.
+- `research/SOURCE_BACKED_FINDINGS_2026-10-20.md`: manual point-in-time aggregate findings from targeted source queries.
+- `research/NEXT_RESEARCH_TESTS.md`: next falsification tests.
+- `docs/MATCHING_CONCLUSIONS_LEDGER.md`: append-only evidence/provenance contract.
+- `docs/VERSIONED_RESEARCH_DATA_POLICY.md`: authoritative conclusions-only/manual-refresh policy.
 
-### 4. Conclusions
-Every conclusion is a new append-only record with:
-- stable `conclusion_id`, `matching_run_id`, method/version and creation timestamp;
-- links to the exact source records and comparison-result records;
-- hypothesis, observation summary, conclusion, confidence/uncertainty, counterevidence and limitations;
-- status such as `exploratory`, `replicated`, `contradicted` or `retired`;
-- next test and links to any later conclusion that revises or contradicts it.
+## Manual refresh contract
+When the user explicitly asks to continue or refresh:
+1. Identify the exact source project and read-only evidence available.
+2. Inspect relevant existing code history and targeted aggregate outcomes only.
+3. Keep cohorts and PnL units separate; note source/time-window limitations.
+4. Add a compact, source-linked finding or falsification task to the private IRL branch.
+5. Re-read the committed artifact and verify its content.
+6. Report only material completion or blockers; do not stop for repetitive status updates.
 
-Never silently edit or erase a previous conclusion. A revised conclusion points back to the earlier one and explains what changed. Correlation is not causation; paper benchmark assumptions are not realized performance.
+Do not schedule work, create background jobs, modify production trading behavior, or write to/reset the canonical source as part of research transfer.
 
-### 5. IRL Intelligence knowledge layer
-The intelligence layer consumes **conclusion records and their evidence links**, not untraceable prose and not raw source rows as if they were conclusions. It should:
-- index conclusions by asset, strategy, feature, market regime, cohort, timeframe, hypothesis and outcome;
-- retain provenance links to source snapshots, source IDs and matching runs;
-- distinguish exploratory findings from replicated evidence and validated results;
-- surface contradictions and confidence limits alongside positive findings;
-- use prior conclusions to propose the next analysis, while keeping the next run independent and reproducible.
-
-The intelligence layer may generate a synthesis, but every claim must resolve to one or more stored conclusion IDs and ultimately to source evidence. Generated synthesis is not allowed to overwrite the underlying records.
-
-## Storage layout in the private IRL repository
-
-Recommended logical structure (physical chunking may differ to stay within Git limits):
-
-- `data/source-snapshots/<snapshot-id>/` — exact source exports and manifest.
-- `data/matching-runs/<matching-run-id>/manifest.json` — algorithm, commit, parameters, source snapshot references, time window.
-- `data/matching-runs/<matching-run-id>/observations.*` — reproducible measured results and intermediate comparisons.
-- `data/conclusions/<conclusion-id>.json` — one append-only conclusion per record, or deterministic chunked JSONL.
-- `knowledge/index.*` — rebuildable search/index artifacts derived from conclusions; never the sole copy of evidence.
-- `schemas/` — versioned contracts and validators.
-
-Use deterministic serialization, checksums, stable IDs and explicit schema versions. Do not place secrets, credentials, access tokens or connection strings in the repository. “Exact source data” means no analytical filtering or rewriting; security-sensitive material must be handled by a separately reviewed secure-export policy, not casually committed.
-
-## Refresh contract
-
-Each refresh should:
-1. identify new/changed source rows using a verified key/change strategy;
-2. store the exact source snapshot/chunk and update its manifest;
-3. run the matching process against explicitly named inputs;
-4. validate row counts, IDs, timestamps, cohort boundaries and checksums;
-5. append observations and conclusions;
-6. update/rebuild the intelligence index from the conclusion ledger;
-7. publish a run report with successes, skips, errors and unresolved checks.
-
-Do not claim automatic refresh until a real job has run end-to-end and the resulting source chunks, run manifest, conclusions and intelligence index have been verified. Never reset or delete source data as part of this workflow.
-
-## Current implementation status
-This document defines the target contract; it is not proof that the pipeline is already automated. The repository still needs a verified row-preserving export, a real matching-run output adapter, conclusion persistence, and an end-to-end test before the process can be described as operational.
+## Current status
+The conclusions-only policy is authoritative. Initial findings and next-test artifacts exist, but some historical claims lack original run IDs and exact matching metadata. The pipeline should be described as partially documented, not fully automated or fully reconciled, until those provenance gaps are closed.
