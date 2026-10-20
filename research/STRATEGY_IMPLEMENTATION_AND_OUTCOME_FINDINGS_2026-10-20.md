@@ -219,3 +219,13 @@ In `supabase/functions/trading-pipeline-orchestrator/index.ts`, the orchestrator
 Source: [orchestrator at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/trading-pipeline-orchestrator/index.ts).
 
 Research implication: when analyzing historical audit coverage, distinguish audit-present from audit-synthesized/missing. Treat fallback records as `audit_missing` / coverage unknown; do not interpret zero eligible or zero uncovered counters as evidence of complete telemetry. This is a research data-quality finding only; no execution or production code changed.
+
+
+## Finding F-20261020-21 — Orchestrator can mark a run completed when trade-executor failed
+**Status:** control-flow fact at reviewed source commit; production incidence unknown. **Confidence:** high for reviewed branch behavior.
+
+The orchestrator's `call()` wrapper preserves HTTP failures as `ok: false`. Phase 3 collects `trade-executor` and `variant-resolver` concurrently, but unlike earlier critical ingestion and synthesis stages, it does not check `tradeExecutorStage.ok` before proceeding. After post-trade learning, the outer path writes `pipeline_runs.status = "completed"` even if trade-executor returned a non-2xx response. When that failed result also lacks an audit object, the orchestrator can persist the synthetic empty “completed” audit described in F-20. Consequently, pipeline status alone is not proof that paper execution completed successfully.
+
+Source: [orchestrator at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/trading-pipeline-orchestrator/index.ts).
+
+Research implication: execution-quality analysis must inspect the individual `trade-executor` stage `ok/status`, audit presence/status and the top-level pipeline status separately. Count completed pipeline runs with failed executor stages; do not treat them as successful zero-trade runs. This documents current source behavior only; no production code or pipeline status was changed.
