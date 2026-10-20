@@ -120,3 +120,5 @@ Run these in order when the user requests a new research batch. This is a conclu
 
 
 Baseline runtime follow-up: the 16:00 orchestrator run stopped at the critical `whale-watch` HTTP 500 stage before calling `early-entry-regime`; verify baseline timestamp telemetry on the next successful scheduled run. Do not invoke manually because it can open paper positions.
+
+74. **Early-entry variant scheduler freshness after offset — pending runtime check (2026-10-20):** collector cron job 19 remains `*/10 * * * *`; variant job 21 is now `1-59/10 * * * *` to avoid evaluating at the same instant as candle collection. After the first offset run, confirm the job is active/succeeded and A/B/C metrics use the latest fully closed 5m candle with `captured_at <= evaluation_at`; record close lag and capture age. Verify no new entry gate or threshold changed. Do not invoke the evaluator manually; it can open B/C paper positions. See F-20261020-74. Historical contamination remains unknown; do not relabel trades.
