@@ -610,3 +610,18 @@ Research rule: treat the live function definition as runtime truth. Preserve the
 Recent pipeline runs continue at approximately 10-minute intervals through 2026-10-20 15:30 UTC, but their persisted `pipeline_runs.result` objects do not contain `research_knowledge_sync`. The source `pipeline.server.ts` writes that field into `result`; the orchestrator's final update replaces the `result` JSON with a new object containing stages and execution audit but omits the sync field. Meanwhile, the latest research-evidence capture is 2026-10-19 22:35:15 UTC and the V3/trade case coverage gaps above remain. The database therefore does not provide reliable per-run proof that the refresh succeeded, failed, or ran.
 
 Research rule: fix/verify telemetry persistence only in an explicitly approved source change. Until then, report refresh status as unobservable from `pipeline_runs`, and infer no successful refresh from a top-level pipeline `completed` status.
+
+
+## Finding F-20261020-62 — Live 50-run execution audit covers only 46 of 135 eligible BUY signals
+**Status:** direct read-only aggregate of the latest 50 completed `pipeline_runs`, from 2026-10-20 07:20 to 15:30 UTC. **Confidence:** high for recorded telemetry; audit is known to be incomplete.
+
+Across those 50 runs, the stored audit summary reports 135 eligible BUY signals, 46 audited eligible signals and 89 uncovered eligible signals: recorded audit coverage is 34.07%. Four runs had eligible BUY signals but zero audited eligible signals. All 50 rows had an `execution_audit` object, so this is not simply a missing-object issue; it is incomplete per-signal coverage. This supports the existing code findings about selective audit events and paper research-mode bypasses, but does not identify the cause of each uncovered signal.
+
+Research rule: report `eligible`, `audited`, and `uncovered` together per run and over the full sample. Do not infer that an eligible signal passed every normal risk gate from the absence of a rejection event.
+
+## Finding F-20261020-63 — Recorded live rejection events show micro-data and per-symbol-cap friction
+**Status:** direct read-only aggregate of events stored in the same latest 50 completed pipeline runs. **Confidence:** high for recorded events only, not complete candidate-level rates.
+
+The audit contains 249 recorded events: 114 `QUALITY_GATE / confidence_below_minimum`; 75 `PER_SYMBOL_CAP / max_exposure_reached: 1/1`; 27 `CANDIDATE_FILTER / duplicate_composite_signal`; 19 `CANDIDATE_FILTER / eligible BUY accepted in paper research mode`; 7 `MICRO_TF_GATE / MICRO_DATA_NOT_READY` (6 stale 5m/15m snapshots and 1 missing 5m/15m); 4 micro-pressure cautions; and 3 sideways-market rejections where whale net flow was −5.51% against the required >+5%. No recorded ERROR events appeared in this sample. Because 89 eligible BUY signals were uncovered by the audit, these are counts of recorded events, not exhaustive gate frequencies.
+
+Research rule: prioritize read-only per-stage coverage and freshness measurements before altering gates. Do not relax confidence, micro-timeframe, symbol-cap, or sideways thresholds based on these counts alone.
