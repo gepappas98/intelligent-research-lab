@@ -143,3 +143,6 @@ Additional regression condition: evaluators now reject any source candle whose `
 
 
 Legacy source-data check: 809 old 15m and 1,069 old 5m candle rows had `captured_at < close_time`; none were in the active 15-minute evaluation window at the 16:49 UTC check. Keep historical rows unchanged; do not interpret this as contaminated trade count. Both evaluators now reject them if they appear in a future active window.
+
+
+77. **Lineage storage slope after 24 hours — pending:** measure row count, `pg_relation_size`, `pg_indexes_size`, and daily insert volume for `early_entry_candle_lineage` after one full day of normal runs. Estimate 30-day growth from observed data, not a guessed constant. Preserve historical lineage and do not add deletion/retention until the observed storage slope is compared with the project's existing storage budget.
