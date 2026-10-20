@@ -249,3 +249,43 @@ The resolver can persist `outcome = 'ambiguous'`, `resolved_at` set, and `pnl_pc
 Sources: [variant-resolver at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/variant-resolver/index.ts), [V3 RPC definitions](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql), [Variant Comparison panel](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx).
 
 Research rule: report `ambiguous` separately as a terminal non-scored outcome; keep its PnL null and exclude it from win/loss profitability calculations, but include it in total case-coverage accounting. Do not reclassify it as expired, win, loss, or zero PnL.
+
+
+## Finding F-20261020-24 — Benchmark panel silently substitutes fallback assumptions when settings query has no data
+**Status:** source-code fact at reviewed revision; whether the fallback differs from production settings at any given time is unknown. **Confidence:** high.
+
+The Variant Comparison panel queries `pipeline_settings` for `variant_max_hours`, `variant_tp_pct`, and `variant_sl_pct`, but sets `settings = settingsQuery.data ?? FALLBACK_SETTINGS`. Its explicit error branch checks the performance query, not `settingsQuery.error`. If the settings read fails or returns no row, the panel can continue showing benchmark assumptions from the fallback constant instead of confirming the active resolver settings. This can make a performance display look more precisely tied to runtime configuration than the evidence supports.
+
+Source: [Variant Comparison panel at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx).
+
+Research rule: record settings provenance as `runtime`, `fallback`, or `unavailable`; do not label fallback values as the active runtime configuration. For historical comparisons, join the benchmark outcomes to settings evidence available for the same evaluation period.
+
+
+## Finding F-20261020-25 — Resolver can return overall `ok: true` after per-row database update failures
+**Status:** source-code fact at reviewed revision; failure frequency unknown. **Confidence:** high.
+
+When an individual `strategy_variant_signals` update fails, the resolver records `db_update_failed` in its audit and continues to the next candidate. Its final response still returns `ok: true`, with `resolved` counting successful updates and `candidates` counting selected variants; it does not return a dedicated failed-update count. Thus a successful HTTP/function-level response can still represent partial resolution. Consumers that only inspect `ok` may miss unresolved rows caused by write failures.
+
+Source: [variant-resolver at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/variant-resolver/index.ts).
+
+Research rule: distinguish candidate count, successfully updated count, write failures, candle-data blocks, no-relevant-candle blocks, and unresolved remainder. Reconcile candidate outcomes to database state; never equate `ok: true` with every candidate being resolved.
+
+
+## Finding F-20261020-26 — V3 benchmark PnL is raw price return, not fee-adjusted net return
+**Status:** calculation fact at reviewed source revision. **Confidence:** high.
+
+The resolver calculates `pnl_pct` solely from entry price and exit price: for BUY, `(exit-entry)/entry * 100`; for SELL, `(entry-exit)/entry * 100`. The reviewed calculation does not subtract entry/exit trading fees, spread, slippage, or execution impact. Consequently, V3 `total_pnl_pct` is a gross price-movement benchmark, not realized net trading performance. This does not invalidate within-cohort gross comparisons, but it can overstate deployable economic performance and makes comparisons with fee-adjusted paper-trade PnL non-equivalent.
+
+Source: [variant-resolver at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/variant-resolver/index.ts), [V3 benchmark RPC migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql).
+
+Research rule: label the current metric `gross price-return %`. Any net counterfactual must use evidenced fee/spread/slippage assumptions, remain a separate derived metric, and never overwrite historical `pnl_pct`.
+
+
+## Finding F-20261020-27 — Rotating offset pagination of mutable open rows needs starvation/coverage verification
+**Status:** risk inferred from source pagination design; actual skipped-row incidence unmeasured. **Confidence:** moderate.
+
+The resolver selects open rows in fixed batches of 100 using `created_at` ordering and an offset derived from a rotating scheduler slot and the current count of eligible/matured open rows. Rows are removed from the selected set as they resolve, so the set size and computed page count change between invocations. With offset pagination over a mutable set, a shrinking count can shift page boundaries and cause rows to be revisited or delayed; the source also separates matured and regular batches, which need independent coverage accounting. This is a testable coverage risk, not proof that a specific row was skipped.
+
+Source: [variant-resolver at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/variant-resolver/index.ts).
+
+Research rule: measure oldest eligible age, selection frequency, time-to-resolution, and never-selected eligible rows separately for matured and regular cohorts. Do not infer full resolver coverage from successful invocations or aggregate candidate counts.
