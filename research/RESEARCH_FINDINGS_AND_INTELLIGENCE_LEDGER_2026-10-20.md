@@ -200,3 +200,6 @@ Gate interpretation from the first offset cycle: 53 candle symbols; whale turn t
 
 ## 2026-10-20 — Normalized Early Entry candle lineage deployed
 Production table `public.early_entry_candle_lineage` applied with RLS, no anon/authenticated grants, service_role-only writes, timestamp validity check, and indexes. It stores per-evaluation candle identity (symbol/timeframe/open/close/captured/source), not raw OHLCV. Both evaluators deployed: `early-entry-variants v9`, `early-entry-regime v14`. Decision metadata now carries a UUID `candle_evaluation_id` and observable `candle_lineage_write_status`; inserts are best-effort to preserve strategy gates. Regression test source added. Await normal scheduled runs to verify lineage rows and timestamps. No historical backfill/reclassification.
+
+
+First lineage runtime check (16:41 UTC): variants v10 persisted 52 normalized candle rows for 52 symbols under evaluation ID `d00c0701-88f0-4a00-b9eb-d4f757b71b00`; A/B/C decision metadata matched that ID and all rows passed the DB timestamp checks. The baseline invocation at 16:40 occurred during rollout and used the previous function revision, so its lineage write failed due to missing `evaluation_at`; the call itself returned HTTP 200 and opened zero trades. Version v15 includes the fix; wait for its next scheduled invocation to verify. No manual execution.
