@@ -110,9 +110,6 @@ Run these in order when the user requests a new research batch. This is a conclu
 
 72. **Early-entry candle lineage / look-ahead audit:** inspect the exact scorer/collector code and `metrics.candle_symbols`; prove for each 5m/15m input whether the candle was closed and available at decision time. The first read-only join was inconclusive because decision rows do not provide a normalized source-candle ID/time tuple. Do not label this a confirmed defect or clean result until lineage is demonstrated. No production changes.
 
-73. **Reject unfinished candles in early-entry paths:** regression-test `market-candle-collector`, `early-entry-variants`, and `early-entry-regime` so only candles with `close_time <= evaluation_time` can feed taker-buy imbalance, gates, scores, or candidate ranking. Collector must not treat the currently forming Binance kline as final. Record source candle open/close/capture timestamps in decision telemetry. Audit historical exposure before quantifying impact. Do not deploy a production fix without a separately reviewed change.
-
-
 73. **Reject unfinished candles in production early-entry paths — deployed 2026-10-20**
    - Collector rejects `close_time >= capturedAt` before upsert.
    - Both `early-entry-variants` and `early-entry-regime` require `close_time < evaluationAt` and `captured_at <= evaluationAt` in SQL and repeat the checks in memory.
