@@ -31,3 +31,5 @@ Run these in order when the user requests a new research batch. This is a conclu
 21. **Execution-audit fallback integrity:** quantify pipeline runs where trade-executor returned no `execution_audit` and the orchestrator synthesized the default empty audit. Separate audit-present from fallback-generated records; mark candidate counts and coverage unknown for fallback rows rather than interpreting zero counters as true zero. Read-only audit; no execution or production code changes.
 
 22. **Pipeline/executor status consistency:** read-only count runs whose top-level `pipeline_runs.status` is completed while the stored `trade-executor` stage has `ok=false` or non-2xx status. Cross-tabulate audit presence/status and actual opened trades. Do not classify these as successful zero-entry runs; no production code changes.
+
+23. **V3 expiry-aware performance reporting:** for each V3 preset and identical window, report wins, losses, expired, open, decision win rate `wins/(wins+losses)`, all-resolved win share `wins/(wins+losses+expired)`, expiry share, and PnL contribution from expired cases. Preserve the current cohort and outcome rows; analysis/reporting only.
