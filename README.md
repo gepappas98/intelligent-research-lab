@@ -15,8 +15,8 @@ An independent, research-only platform for evaluating crypto signals, strategies
 
 ## Project status
 
-**Phase:** P0 forensic audit and data-contract definition.  
-**No application code, schema migrations or production data changes are authorized by this repository bootstrap.**
+**Phase:** P0 forensic audit, knowledge consolidation and transfer preparation.  
+**Production row transfer has not run:** the isolated IRL database destination is not yet verified. No source rows have been deleted.
 
 Read [the preliminary P0 Infrastructure & Data Audit](docs/P0_AUDIT.md) for observed facts, unresolved questions and next steps.
 
@@ -31,13 +31,14 @@ Read [the preliminary P0 Infrastructure & Data Audit](docs/P0_AUDIT.md) for obse
 
 ## Initial implementation boundary
 
-Start read-only against existing sources. Confirm GitHub, Lovable, Vercel and Supabase project identities before connecting anything. Keep IRL physically and logically isolated from live/paper execution paths. No automatic strategy switching or execution integration is part of v1.
+Start read-only against existing sources. Confirm GitHub, Lovable and Supabase project identities before connecting anything. Keep IRL physically and logically isolated from live/paper execution paths. No automatic strategy switching or execution integration is part of v1.
 
 ## Transfer and data-contract work (draft PR)
 
 - [Consolidated research knowledge ledger](docs/RESEARCH_KNOWLEDGE_LEDGER.md)
 - [Machine-readable strategy and experiment catalog](docs/STRATEGY_CATALOG.json)
 - [Source-preserving research data transfer runbook](docs/RESEARCH_DATA_TRANSFER_RUNBOOK.md)
+- [Source export execution plan and migration-history caveats](docs/EXPORT_EXECUTION_PLAN.md)
 
 The following documents are being reviewed on branch `research/knowledge-transfer-p0`; they do not authorize a database migration or production import:
 
@@ -47,6 +48,5 @@ The following documents are being reviewed on branch `research/knowledge-transfe
 - [Wrong-repository dependency inventory, callers, SQL routines and cron jobs](docs/WRONG_REPO_DEPENDENCY_INVENTORY.md)
 
 IRL's own isolated writable database is still unconfirmed. Until it is positively identified, remain read-only against source systems and do not apply migrations or copy production records.
-
 
 Current database identity blockers and the latest destination recheck are documented in [the Supabase project map](docs/SUPABASE_PROJECT_MAP.md).
