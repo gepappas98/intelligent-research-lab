@@ -49,3 +49,5 @@ Run these in order when the user requests a new research batch. This is a conclu
 30. **V3 maturity-matched comparison:** report entry-age distribution, resolved/open/expired/ambiguous coverage by strategy, and results on matched entry cohorts with a common follow-up horizon. Keep open outcomes censored and preserve the original rolling-seven-day view as a separate descriptive metric.
 
 31. **Early Entry whale-flow query coverage:** measure one-hour `whale_alerts` volume against the 3,000-row cap, inspect whether query ordering is deterministic, and compare accumulation/distribution totals with a reproducible bounded cohort. Record row count, time coverage, and state differences; offline/read-only, no production gate changes.
+
+32. **Archive status consistency:** inspect duplicate status keys in cleanup function responses and compare reported flags with control settings. Read-only; do not invoke cleanup.
