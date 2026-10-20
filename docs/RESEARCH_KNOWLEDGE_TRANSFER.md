@@ -157,3 +157,19 @@ The deployed `get_research_archive_status(72,168)` returned `status=incomplete`:
 A later query returned 504,605,843 bytes (481 MB), 3,019 evidence rows, 3,000 cases, 0 findings, and 1 archive-control row. The latest archive preflight returned 29,790 eligible/missing source records (not 29,788): whale-shock followups now report 538 rows. Both archive and source-delete controls remain disabled.
 
 The live policy inventory also showed permissive SELECT policies (`USING (true)`) for `anon` and `authenticated` on `research_evidence`, `research_cases`, and `research_findings`. This is a least-privilege review item. No policy was changed during this audit; policy changes should be reviewed separately from destructive rollback.
+
+
+### Fresh superseding recheck — 2026-10-20 05:31 UTC
+
+A later read-only SQL query supersedes the prior byte-size and retention counts above:
+
+- Database size: **505,736,339 bytes (505.74 MB decimal / 482.31 MiB binary)**.
+- Archive table counts remain: 3,019 evidence rows, 3,000 cases, 0 findings, 1 control row.
+- Retention status remains `incomplete`: **30,084 eligible source records, 0 archived, 30,084 missing evidence**.
+- Current missing counts: asset news 363; asset flow snapshots 9,450; whale flow snapshots 1,416; asset price snapshots 9,450; whale transitions 545; event-flow transmissions 1; asset sentiment snapshots 7,773; whale-shock followups 541; whale transition context 545.
+- Archive relations together occupy 3,661,824 bytes (~3.49 MiB); removing them alone would not resolve the overall storage issue.
+- A live read-only query verified the cleanup control row remains `allow_archive=false` and `allow_source_delete=false`; the deployed `cleanup_research_data(72,168,false)` body returns before source DELETE under those flags. The scheduled cleanup function was not invoked.
+- Live RLS catalog still shows `USING (true)` SELECT policies for `anon` and `authenticated` on all three archive tables. No policy was changed.
+- No production records have been exported to a secure artifact or copied to IRL. No rows were deleted; no schema, function, policy, cron, or trading behavior was changed by these checks.
+
+The remaining next step is still destination identity verification and a verified secure export plan—not migration or deletion.
