@@ -68,8 +68,8 @@ done
 # This is coverage metadata only; it does not export or modify excluded tables.
 while IFS= read -r table; do
   [[ -z "$table" ]] && continue
-  if ! printf '%s\\n' "${TABLES[@]}" | grep -Fxq -- "$table"; then
-    printf 'public.%s\\n' "$table" >> "$SNAP/metadata/excluded-public-tables.txt"
+  if ! printf '%s\n' "${TABLES[@]}" | grep -Fxq -- "$table"; then
+    printf 'public.%s\n' "$table" >> "$SNAP/metadata/excluded-public-tables.txt"
   fi
 done < "$SNAP/metadata/public-tables.tsv"
 
