@@ -209,3 +209,13 @@ The corrective migration `20261009050000_fix_whale_flow_shock_data_quality.sql` 
 Sources: [P0 stabilization tracker at reviewed commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/docs/P0_STABILIZATION_TRACKER.md), [corrective migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261009050000_fix_whale_flow_shock_data_quality.sql).
 
 Research rule: never treat `complete_24h` as validated until paired flow and BTC return exist for the same horizon. Before using the cohort, verify production migration version and recalculate coverage counts by horizon; do not alter raw observations or infer missing returns.
+
+
+## Finding F-20261020-20 — Missing executor audit can be persisted as a zero-count “completed” audit
+**Status:** code-path fact at reviewed source commit; frequency in production runs unknown. **Confidence:** high for fallback semantics.
+
+In `supabase/functions/trading-pipeline-orchestrator/index.ts`, the orchestrator reads `tradeExecutorStage?.result?.execution_audit`. If absent, it synthesizes a version-1 audit with `status: "completed"`, an empty `events: []`, and summary counters `eligible_buy_signals: 0`, `audited_eligible_signals: 0`, `uncovered_eligible_signals: 0`; it also defaults opened/skipped counts from the executor result. This fallback conflates “audit object was not returned” with a genuinely complete audit that found zero eligible candidates. The three zero counters do not establish that no eligible signals existed or that coverage was complete.
+
+Source: [orchestrator at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/trading-pipeline-orchestrator/index.ts).
+
+Research implication: when analyzing historical audit coverage, distinguish audit-present from audit-synthesized/missing. Treat fallback records as `audit_missing` / coverage unknown; do not interpret zero eligible or zero uncovered counters as evidence of complete telemetry. This is a research data-quality finding only; no execution or production code changed.
