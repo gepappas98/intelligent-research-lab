@@ -625,3 +625,13 @@ Research rule: report `eligible`, `audited`, and `uncovered` together per run an
 The audit contains 249 recorded events: 114 `QUALITY_GATE / confidence_below_minimum`; 75 `PER_SYMBOL_CAP / max_exposure_reached: 1/1`; 27 `CANDIDATE_FILTER / duplicate_composite_signal`; 19 `CANDIDATE_FILTER / eligible BUY accepted in paper research mode`; 7 `MICRO_TF_GATE / MICRO_DATA_NOT_READY` (6 stale 5m/15m snapshots and 1 missing 5m/15m); 4 micro-pressure cautions; and 3 sideways-market rejections where whale net flow was −5.51% against the required >+5%. No recorded ERROR events appeared in this sample. Because 89 eligible BUY signals were uncovered by the audit, these are counts of recorded events, not exhaustive gate frequencies.
 
 Research rule: prioritize read-only per-stage coverage and freshness measurements before altering gates. Do not relax confidence, micro-timeframe, symbol-cap, or sideways thresholds based on these counts alone.
+
+
+## Finding F-20261020-64 — Archive-status `last_archive_at` is sourced from all research evidence, not retention archives
+**Status:** SQL contract and live output confirmed. **Confidence:** high.
+
+`get_research_archive_status` returns `last_archive_at = max(captured_at)` across the entire `research_evidence` table, without filtering to the nine retention-source tables. In the live snapshot, the function reported `last_archive_at=2026-10-19 22:35:15 UTC` while simultaneously reporting `archived_sources=0` and `archive_enabled=false`. The timestamp corresponds to general research evidence materialization and does not establish that retention-source archival occurred.
+
+Source: [archive status function in the capture-gate migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql).
+
+Research rule: report the latest capture timestamp for the explicit retention-source set separately from general research evidence. Never present `last_archive_at` alone as proof of archival activity.
