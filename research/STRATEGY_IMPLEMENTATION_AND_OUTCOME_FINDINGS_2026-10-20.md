@@ -767,3 +767,9 @@ The first scheduled run after the offset succeeded: cron job 21 started at `16:3
 
 ### Follow-up live audit at 16:32 UTC
 The 16:31 offset variant run succeeded. All three A/B/C decisions used the candle closed at 16:29:59.999Z and captured at 16:30:11.256Z before evaluation at 16:31:00.661Z; close lag was 1.01 minutes and capture age 0.82 minutes, compared with ~10.02 and ~9.85 minutes on the previous aligned schedule. The latest read found 643 post-deploy candle rows across 5m/15m with zero captured before close and zero still unclosed. No new early-entry paper trades were present after the deploy cut-off. This validates the first offset cycle; subsequent scheduled cycles still merit passive monitoring.
+
+
+### Post-deploy decision and historical metadata reconciliation — 2026-10-20 16:32 UTC
+A read-only aggregate over all variant decisions since the 15:56 UTC deploy cut-off found 12 decisions: four per variant (A_CURRENT, B_EARLY_REVERSAL, C_ADAPTIVE_REVERSAL). All 12 had non-null evaluation, latest-close and latest-capture timestamps; all 12 passed `latest_close_time < evaluation_at` and `latest_captured_at <= evaluation_at`. All 12 were `NO_ENTRY`; no variant paper entries or baseline Early Entry paper trades were created after the cut-off. Candle collector audit at 16:32 found 426 post-deploy 5m rows and 217 post-deploy 15m rows, with zero captured before close and zero still unclosed at query time.
+
+The historical trade metadata check also found that all 19 pre-deploy `early_entry_regime` paper trades had `gate_diagnostics`, but **0/19** retained `candle_evaluation_at`, `candle_latest_close_time`, `candle_latest_captured_at`, or per-candle source references. Thus these diagnostics explain strategy gates but cannot prove which candle each entry consumed. Exact historical contamination remains unknown; no historical trades or outcomes were modified.
