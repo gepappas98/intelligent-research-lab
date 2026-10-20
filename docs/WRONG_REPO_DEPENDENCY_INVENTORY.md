@@ -53,3 +53,12 @@ The first migration explicitly creates permissive SELECT policies using `USING (
 The fourth migration also drops `public.research_cases_source_idx`, an index created by the first archive migration. It is archive-specific; still, any rollback plan must be based on the final live catalog, not a simplistic replay of file names. Do not restore/drop indexes blindly, and do not infer that dropping archive objects will materially reduce total database size.
 
 These findings strengthen the requirements to reconcile every migration against live `pg_class`, `pg_proc`, `pg_policies`, grants and migration-history records before drafting a forward rollback.
+
+
+## Scheduled cleanup guard behavior — verified from migration source
+
+The scheduled `research-data-retention` job passes `cleanup_research_data(72,168,false)`; the third argument means **not a dry run**. That is potentially destructive by itself, so the safety conclusion depends on the function's live body and control row, not on the cron name.
+
+The latest inspected migration body checks `research_archive_control.allow_archive` before invoking the archive function or reaching any source DELETE. When `allow_archive=false`, it returns early with reason `archive paused pending storage and evidence-value review`. The current control row is reported as `allow_archive=false` and `allow_source_delete=false`, and the live retention preflight is incomplete (29,790 missing evidence). Under that observed state, the function should return before the DELETE statements.
+
+This is a source-code/control-state safety finding, not a claim that no prior deletion has ever occurred or a substitute for checking the live deployed function definition. Before any future maintenance, verify the deployed function body and control row again. No cleanup function was invoked by this audit, and no rows were deleted.
