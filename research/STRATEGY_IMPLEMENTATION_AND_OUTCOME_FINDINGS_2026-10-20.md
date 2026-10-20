@@ -660,3 +660,18 @@ Research rule: prioritize read-only per-table/index size trends and retention/va
 The `cron.job` row for `storage-capacity-watchdog` (job 15, intended every minute) is `active=false`. Hourly `private.storage_size_snapshots` show 477,818,003 bytes at 2026-10-19 21:13 UTC and 482,217,107 bytes at 22:13 UTC, crossing the 480,000,000-byte threshold between those snapshots. The latest saved hourly snapshot at 2026-10-20 15:13 UTC is 526,970,003 bytes; the direct database-size query at ~15:31 UTC is 529,591,443 bytes. From the 2026-10-19 16:13 snapshot (462,163,091 bytes) to 2026-10-20 15:13, net size increased by 64,806,912 bytes in 23 hours, despite interim fluctuations.
 
 The guard's old `triggered_at` remains latched from 2026-10-11 and its watchdog cron is inactive, so there is no active scheduled enforcement to notice the later re-crossing. Do not reactivate, pause, or reschedule the watchdog as part of this research transfer; record for explicit owner decision.
+
+
+## Finding F-20261020-68 — Live repeated-BUY research ledger remains 98.7% unresolved
+**Status:** direct read-only production aggregate, approximately 2026-10-20 15:31 UTC. **Confidence:** high for current row counts.
+
+`repeated_buy_research_ledger` has 2,729 rows: 2,694 with `net_pnl IS NULL` (98.72%), 27 negative-PnL rows and 8 positive-PnL rows; non-null PnL sums to −$355.78. The newest entries are current through 2026-10-20 15:30 UTC. The 35 non-null outcomes are too few, and the unresolved share too high, to treat the ledger as a reliable strategy verdict. Null outcomes must remain unresolved, not be imputed as zero or classified as losses.
+
+Research rule: analyze outcome maturity and missingness by entry cohort/source before interpreting the 35 resolved values; preserve all ledger rows.
+
+## Finding F-20261020-69 — Exact live row counts confirm large telemetry tables dominate storage
+**Status:** direct read-only production `count(*)` queries, approximately 2026-10-20 15:31 UTC. **Confidence:** high for snapshot counts.
+
+Exact counts include `strategy_shadow_diagnostics` 114,933 rows (~95.98 MiB including indexes), `composite_signals` 16,810 (~78.63 MiB), `strategy_variant_signals` 67,867 (~41.99 MiB), `pipeline_runs` 882 (~36.30 MiB), `whale_alerts` 60,251 (~35.09 MiB), `market_candles` 92,377 (~30.34 MiB), and `accumulation_shadow_observations` 57,317 (~25.51 MiB). These exact counts differ materially from `pg_stat_user_tables.n_live_tup` estimates for several tables; use exact counts for row totals and relation-size measurements for storage, not stale tuple estimates.
+
+Research rule: evaluate each table's retention value, uniqueness and re-computability independently before any owner-approved cleanup. No deletion or retention change was made.
