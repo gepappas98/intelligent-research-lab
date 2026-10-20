@@ -316,3 +316,9 @@ That matches the first retained PAXG BUY on 2026-10-15:
 - The separate MTF gate saw 1h bullish + 1d bullish and therefore passed 2/3. The score crossed the BUY threshold of 1.5, but the trade executor then rejected it because confidence was below 0.60.
 
 **Final interpretation:** this PAXG record reflects the pre-2026-10-17 production scoring generation, not the later weighted-MTF scorer. The discrepancy is explained by a documented code change; it should not be “fixed” by rewriting the historical record. The later weighted scorer is a new scoring generation and must be compared as a separate cohort.
+
+## 15. Post-change PAXG observation confirms the new scoring path
+
+The later PAXG observation `b1687b7e-ef27-430c-a8fd-9ccb7f3d10cd` at 2026-10-17 23:40:18 UTC records a weighted MTF score of 0.43 with 4h bullish, 1h bearish and 1d bullish. Its captured preset was `conservative`, with weights 1.2 / 1.2 / 1.2, no fresh whale input and no fresh Council verdict. The stored technical score is 0.521739, exactly (0.4347826 × 1.2), and the resulting confidence is 0.1242236. The recommendation is `watch`, not BUY.
+
+This later row independently corroborates that the weighted multi-timeframe path was being used for PAXG by 2026-10-17 23:40 UTC. It does not identify the exact deployment timestamp, but it narrows the historical transition to after the Oct 15 first BUY and no later than this Oct 17 observation. The two scoring generations should remain distinct in IRL.
