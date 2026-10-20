@@ -145,3 +145,21 @@ For IRL, separate at least these concepts:
 Proposed membership fields: `universe_id`, `universe_version`, `asset_id`, `valid_from`, `valid_to`, `recorded_at`, `inclusion_reason`, `exclusion_reason`, `source_snapshot_id`, and `source_project_ref`. Membership history should be append-only; changes are new events, not updates that erase the prior reason.
 
 Do not force PAXG back into the source trading watchlist as part of this work. If it remains a research target, include it in an IRL research-universe cohort once the isolated destination is verified, and mark any gaps after 2026-10-17 as coverage/censoring rather than inventing observations.
+
+
+## 10. Source-code audit: current archive timestamp semantics are not point-in-time proof
+
+A direct read of the source application's current main branch and the deployed archive migration shows that entry evidence for trades, composite_signals and strategy_variant_signals is materialized with source created_at copied into both observed_at and available_at. The UI read path repeats the same mapping for trade and linked-signal evidence. captured_at is a separate current ingestion/capture time in the SQL path.
+
+This is a semantic defect for strict backtesting if those timestamps are treated as proof of availability. The helper predicate observed_at <= available_at <= entry_at will pass whenever created_at is before entry_at, but it cannot prove when an upstream candle, indicator, whale event, Council verdict or composite signal was actually available to the scorer. It is a mechanical consistency check, not independent provenance.
+
+Required IRL treatment:
+
+- Preserve source_created_at separately from any defensible observed_at and available_at.
+- Permit available_at = NULL and assign a temporal quality such as verified, inferred, ambiguous or unavailable.
+- Exclude ambiguous/unavailable timestamps from strict point-in-time evidence and validated predictive findings; they may remain as explicitly unverified context.
+- Never backdate a later Council sync, transition confirmation, candle close, news publication or follow-up outcome to a signal's created_at.
+- Keep entry snapshot and outcome resolution immutable and separately versioned. If a source row mutates, record the source update/revision as a new observation rather than silently rewriting the original case.
+- Before any IRL ingestion, inspect producer code and historical deployment versions for each selected source table. A current producer cannot prove historical semantics for an earlier cohort.
+
+This finding does not authorize changes to the source app or deployed SQL. It is a hard constraint for the future IRL contract and a required item in the separately reviewed source-app decoupling/rollback plan.
