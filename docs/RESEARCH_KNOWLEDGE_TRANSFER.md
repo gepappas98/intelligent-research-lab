@@ -322,3 +322,14 @@ That matches the first retained PAXG BUY on 2026-10-15:
 The later PAXG observation `b1687b7e-ef27-430c-a8fd-9ccb7f3d10cd` at 2026-10-17 23:40:18 UTC records a weighted MTF score of 0.43 with 4h bullish, 1h bearish and 1d bullish. Its captured preset was `conservative`, with weights 1.2 / 1.2 / 1.2, no fresh whale input and no fresh Council verdict. The stored technical score is 0.521739, exactly (0.4347826 × 1.2), and the resulting confidence is 0.1242236. The recommendation is `watch`, not BUY.
 
 This later row independently corroborates that the weighted multi-timeframe path was being used for PAXG by 2026-10-17 23:40 UTC. It does not identify the exact deployment timestamp, but it narrows the historical transition to after the Oct 15 first BUY and no later than this Oct 17 observation. The two scoring generations should remain distinct in IRL.
+
+## 16. Separate later PAXG paper position — do not conflate with the first BUY
+
+The first retained BUY from Section 13 was rejected and had no linked trade. A later BUY, signal `a095d2bb-1ae1-412c-8685-2fb4a2794347` at 2026-10-15 18:10:15 UTC, is the one linked to paper trade `f2668124-849c-40da-af54-605807f01476`.
+
+- Later signal: price reference 4,158.17; confidence 0.775; regime `sideways`; 4h/1h/1d all bullish; Council BUY at 80% conviction; whale direction was **distribution**.
+- Paper trade: opened 2026-10-15 17:50:15 UTC at 4,156.63; closed 2026-10-17 17:50:30 UTC at 4,157.89.
+- Stored close reason: `stale_exit`; stored `net_pnl`: -0.6970213851124064. The unit, fee treatment and gross/net semantics for this field have not been independently validated; do not present it as a percent or USD amount without checking the trade calculation contract.
+- The position was closed approximately 48 hours after entry, before the nominal 72-hour V3 benchmark expiry. This is a separate operational paper-trade path and should not be silently substituted for the V3 benchmark outcome.
+
+The historical watchlist snapshots show PAXG still pinned at 12:00 UTC on Oct 17, the trade closing at 17:50 UTC, and PAXG absent from the 18:00 UTC snapshot. This supports the observed relationship between open-position pinning and later watchlist removal without proving the precise venue filter that prevented re-entry.
