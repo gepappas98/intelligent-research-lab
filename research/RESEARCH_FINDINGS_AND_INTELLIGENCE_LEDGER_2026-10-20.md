@@ -203,3 +203,6 @@ Production table `public.early_entry_candle_lineage` applied with RLS, no anon/a
 
 
 First lineage runtime check (16:41 UTC): variants v10 persisted 52 normalized candle rows for 52 symbols under evaluation ID `d00c0701-88f0-4a00-b9eb-d4f757b71b00`; A/B/C decision metadata matched that ID and all rows passed the DB timestamp checks. The baseline invocation at 16:40 occurred during rollout and used the previous function revision, so its lineage write failed due to missing `evaluation_at`; the call itself returned HTTP 200 and opened zero trades. Version v15 includes the fix; wait for its next scheduled invocation to verify. No manual execution.
+
+
+Storage efficiency follow-up at 16:44 UTC: removed unused direct decision/trade FK columns and a redundant standalone evaluation index; evaluation ID remains in strategy decision/trade metadata and the unique index still supports evaluation-ID prefix lookups. Existing 52 lineage rows preserved. Table+index footprint decreased from 120 kB to 96 kB. Migration: `20261020171000_early_entry_lineage_storage_trim.sql`. No strategy change.
