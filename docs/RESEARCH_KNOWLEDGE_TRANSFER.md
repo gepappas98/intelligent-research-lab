@@ -301,3 +301,18 @@ A second read-only check of the historical dynamic-watchlist snapshots narrows t
 - The latest CMC snapshot does contain PAXG (24h volume about $116.9M, rank 45), but that alone is not sufficient for watchlist eligibility. The live snapshot does not expose whether the exact exclusion was the Binance USDT listing filter, RevolutX active-pair filter, ranking/cap, or another candidate-resolution detail.
 
 **Best-supported conclusion:** the open paper trade appears to have kept PAXG pinned after it ceased being a dynamic candidate; once the position closed, PAXG was no longer retained by the refreshed active universe. The precise candidate-filter reason remains unverified. The candle collector then correctly stopped refreshing non-watchlist PAXG because there was no open position, fresh whale alert, hot-whale entry or BUY signal in its short priority windows. Do not alter the watchlist policy merely to force PAXG back in; if this matters for the experiment, add an explicit research-universe rule in IRL and evaluate its storage/coverage cost separately.
+
+## 14. Resolution of the historical PAXG score discrepancy
+
+The earlier “unresolved scoring-version discrepancy” is now resolved by source history; this section supersedes only that uncertainty.
+
+Commit [faec37b0c9169b8dab65703dcd47bff193a1fcca](https://github.com/gepappas98/pixel-perfect-pixels/commit/faec37b0c9169b8dab65703dcd47bff193a1fcca), created 2026-10-17 10:09:27 UTC, explicitly changed the production scorer from a single-primary-indicator technical contribution to weighted 4h/1h/1d MTF scoring. Before that change, the production scoring function accepted the primary 4h indicator and added technical weight only when that primary indicator was bullish or bearish. The separate MTF gate could still pass when two of three timeframes were bullish.
+
+That matches the first retained PAXG BUY on 2026-10-15:
+- 4h primary = neutral, so historical technical contribution = 0.
+- Whale accumulation contribution = +0.30.
+- Council BUY contribution = 82% × 1.5 × 1.0 = +1.23.
+- Stored score = 0.30 + 1.23 = **1.53**; maximum configured score denominator = 0.30 + 2.20 + 1.50 = 4.00; confidence = **1.53 / 4.00 = 0.3825**.
+- The separate MTF gate saw 1h bullish + 1d bullish and therefore passed 2/3. The score crossed the BUY threshold of 1.5, but the trade executor then rejected it because confidence was below 0.60.
+
+**Final interpretation:** this PAXG record reflects the pre-2026-10-17 production scoring generation, not the later weighted-MTF scorer. The discrepancy is explained by a documented code change; it should not be “fixed” by rewriting the historical record. The later weighted scorer is a new scoring generation and must be compared as a separate cohort.
