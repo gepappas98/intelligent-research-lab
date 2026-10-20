@@ -309,3 +309,13 @@ The panel queries V3 performance for `days: 7`, and the RPC filters by `created_
 Sources: [Variant Comparison panel](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx), [V3 RPC migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql).
 
 Research rule: pair rolling-window results with entry-age and maturity coverage. For strategy comparisons, use matched entry windows and a common minimum follow-up horizon where possible; keep open cases censored rather than scoring them as losses or zero.
+
+
+## Finding F-20261020-30 — Early Entry whale-flow breadth is computed from an unordered capped query
+**Status:** source-code fact at reviewed revision; whether the 3,000-row cap is reached and whether it biases live calculations are unknown. **Confidence:** high for query semantics.
+
+The Early Entry function reads `whale_alerts` created within the previous hour with `.limit(3000)`, but does not specify an `order()` for that query. It then computes accumulation/distribution USD totals and derives `whaleNet` and `whaleState` from the returned rows. If more than 3,000 rows qualify, the query has no explicit recency or deterministic ordering guarantee in the source, so the calculated flow state may depend on which subset is returned. Even below the cap, the implementation does not record a count of qualifying rows excluded by the cap because it does not request an exact count.
+
+Source: [early-entry-regime at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/early-entry-regime/index.ts).
+
+Research rule: audit one-hour qualifying whale-alert counts and whether the 3,000-row limit is reached; compare the current computed state with a deterministic, fully covered or explicitly bounded cohort offline. Do not change the production gate until the bias is measured.
