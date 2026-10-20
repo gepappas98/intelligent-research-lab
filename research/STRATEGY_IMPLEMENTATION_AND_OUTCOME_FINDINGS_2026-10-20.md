@@ -714,7 +714,7 @@ Recommended corrective design (not applied): filter upstream collector results t
 
 ### Production change
 - `market-candle-collector` deployed as version 3: Binance kline rows are filtered before upsert with strict `close_time < capturedAt`. An open candle and a candle exactly at the close-time boundary are not written by this collector.
-- `early-entry-variants` deployed as version 7: the 5m candle query requires `close_time < evaluationAt` and `captured_at <= evaluationAt`; a second in-memory timestamp guard repeats those checks before selecting the latest row per symbol.
+- `early-entry-variants` deployed as version 8 (version 7 was immediately replaced after CI exposed a duplicate metadata-key type error; the removal was behavior-neutral): the 5m candle query requires `close_time < evaluationAt` and `captured_at <= evaluationAt`; a second in-memory timestamp guard repeats those checks before selecting the latest row per symbol.
 - `early-entry-regime` deployed as version 13: the 5m candle query applies the same strict bounds and repeats them in memory.
 - The evaluators now record evaluation time and latest selected candle close/capture timestamps in their diagnostic metrics. No other strategy gates, thresholds, entry sizing, exits, or cron schedules were changed. No exchange/live orders are enabled.
 
@@ -733,4 +733,4 @@ Observed historical population at audit time:
 - These are the population to investigate, **not** a claim that all 19 entries or all decisions were affected. Exact contaminated count remains unknown.
 - No historical trades, decision rows, source candles, PnL, or statuses were changed.
 
-Source commits on `pixel-perfect-pixels/main`: `e0d76fa84bb618b8b05da12edfdebf4b4bed3fd8` (collector), `c60d0dd282bcaf71c8a10c5be45ef8e8978a1e86` (variants), `a7fe43359650e06a57496fda504d7215a0c70145` (regime), and `6ccf2eff5c55fbb9c9319d864b7c579bd74c8c5b` (regression tests).
+Source commits on `pixel-perfect-pixels/main`: `e0d76fa84bb618b8b05da12edfdebf4b4bed3fd8` (collector), `c60d0dd282bcaf71c8a10c5be45ef8e8978a1e86` (variants), `a7fe43359650e06a57496fda504d7215a0c70145` (regime), `0617f1e8220d4eb0d0c467ca485cf3d8e872fd33` (duplicate-key cleanup), `1e71f9c2e22154cb27190314ee1bd995cab0a237` (Deno tests), `e51edb5c55e9eca1dda8953877b707f568342056` (remove obsolete test extension), and `09e76675c3a0e24877f0c1a7d2de97c06cc9f5e9` (CI read permission).
