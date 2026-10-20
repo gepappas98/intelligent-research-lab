@@ -42,3 +42,14 @@ The deployed refresh function has used source `created_at` as both observed and 
 - [ ] Application decoupling merged and verified without trading/collector regressions.
 - [ ] Before/after object inventory and storage measurements captured.
 - [ ] Explicit approval for production rollback obtained after all above gates pass.
+
+
+## Migration-source reconciliation — 2026-10-20
+
+A static read of `supabase/migrations/20261020160000_research_knowledge_archive.sql` reveals an important comment/state mismatch: its header says the migration is “intentionally NOT applied to production by this change,” but the canonical database's live migration history records the migration and the three follow-up versions as applied. For operational decisions, the live migration history and read-only catalog inspection take precedence over stale comments in the source file.
+
+The first migration explicitly creates permissive SELECT policies using `USING (true)` for both `anon` and `authenticated` on `research_evidence`, `research_cases`, and `research_findings`, and grants SELECT to those roles. This matches the observed live policy inventory and is a concrete least-privilege review item, not merely a theoretical concern. No policy or grant was changed during this audit.
+
+The fourth migration also drops `public.research_cases_source_idx`, an index created by the first archive migration. It is archive-specific; still, any rollback plan must be based on the final live catalog, not a simplistic replay of file names. Do not restore/drop indexes blindly, and do not infer that dropping archive objects will materially reduce total database size.
+
+These findings strengthen the requirements to reconcile every migration against live `pg_class`, `pg_proc`, `pg_policies`, grants and migration-history records before drafting a forward rollback.
