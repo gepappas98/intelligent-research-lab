@@ -7,7 +7,7 @@
 - `public.council_lessons` contains **262 lessons across 55 symbols**.
 - **11 symbols exceed the intended five-lesson working-memory budget**; maximum is 45 for GTC, followed by OSMO 31, AMP 29, TIA 15, RSR 10, UNI 9, then ARB/COMP/TAO/WLD/ZEC at six each.
 - 12 exact normalized lesson-text groups contain duplicates. This count is duplicate groups, not total duplicate rows.
-- No lesson text is blank. All 262 lessons have a non-null `source_trade_id`, but **29 references do not resolve to a row in the current `trades` table**. These orphan references are concentrated in older lessons from 12–14 October: UNI 7, ARB 4, INJ 4, ADA 3, XRP 3, ZEC 2, TIA 2, plus one each for PENGU, SUI, SEI and TAO (the grouped output accounts for 30; validate distinct IDs/row count before remediation because one metric discrepancy remains to be reconciled).
+- No lesson text is blank. All 262 lessons have a non-null `source_trade_id`, but **29 references do not resolve to a row in the current `trades` table**. These orphan references are concentrated in older lessons from 12–14 October: UNI 7, ARB 4, INJ 4, ADA 3, XRP 3, ZEC 2, TIA 2, plus one each for PENGU, SUI, SEI and TAO (the grouped output sums to 29).
 - The missing links do not prove the trade rows were deleted; the lesson may reference a different trade identifier namespace, or source rows may have been removed before the current retention snapshot. Do not infer which without lineage logs.
 
 ## Interpretation
@@ -22,6 +22,6 @@ The 5-lessons-per-symbol target should be implemented as a **derived working-mem
 4. Expose `lessons_total`, `lessons_unique`, `lessons_selected_for_memory`, `orphan_source_links`, and `excluded_lesson_ids` in the knowledge-sync audit.
 5. Keep full lessons and all source trade rows; no deletion, database reset, or production write was performed by this audit.
 
-## Reconciliation caveat
+## Reconciliation
 
-The first aggregate query reported 29 dangling lesson rows, while the symbol breakdown as rendered appears to sum to 30. Treat the orphan count as a detected integrity issue, not a finalized count, until a deterministic row-level query resolves the discrepancy.
+The aggregate orphan count and symbol breakdown both sum to 29 rows across 29 distinct missing trade IDs. This is a confirmed integrity gap; the cause is not established.
