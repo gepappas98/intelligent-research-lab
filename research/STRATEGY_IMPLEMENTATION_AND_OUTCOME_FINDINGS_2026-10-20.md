@@ -419,3 +419,13 @@ Research rule: measure watchlist/listing snapshot ages at entry and report stale
 Source: [cmc-paper-open at the current source default branch](https://github.com/gepappas98/pixel-perfect-pixels/blob/main/supabase/functions/cmc-paper-open/index.ts).
 
 Research rule: compare all open CMC paper trades against the newest-1,000 preflight window and inspect same-symbol opens by invocation time. Treat code-level exposure as a hypothesis until runtime rows confirm incidence.
+
+
+## Finding F-20261020-41 — Research knowledge materialization is invoked from the normal pipeline path
+**Status:** source-code fact; whether the current deployed runtime has this exact code and the RPC applied is unverified. **Confidence:** high for source behavior.
+
+The current source default branch's `src/lib/pipeline.server.ts` calls `refresh_research_knowledge_cases({ p_lookback_hours: 72 })` in the post-mortem section of the normal pipeline path, with an 8-second timeout. It labels the sync research-only and states that it does not feed scoring, entry gates, or execution; errors are recorded and trading continues. Nevertheless, if this version and RPC are deployed, materialization is automatic on each invocation of that pipeline path rather than strictly user-triggered. This conflicts with the operating preference that refreshes be manual and separately authorized.
+
+Source: [pipeline.server.ts at the current source default branch](https://github.com/gepappas98/pixel-perfect-pixels/blob/main/src/lib/pipeline.server.ts).
+
+Research/safety rule: do not invoke the refresh RPC or change cron/deployment as part of this knowledge-transfer work. Verify deployed code/RPC state and record how often the call runs. Keep manual refresh as the intended operating policy; any source change to disable or explicitly gate this call requires a separate approved change.
