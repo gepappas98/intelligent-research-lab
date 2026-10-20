@@ -74,3 +74,23 @@ A read-only query against the canonical project `yckewtpfttvwiptmmrfq` re-checke
 - The scheduled job passes `false` for `p_dry_run`, so it is a real cleanup invocation path guarded by those control flags. The observed flags currently prevent that path from reaching source DELETE statements.
 
 This verifies the present guard state, not historical absence of deletion. Keep both flags false. The public-read policies remain a separate security issue; do not change them as part of rollback without an access-model review and a separate reviewed fix.
+
+
+## Current-main code-path trace — read-only, 2026-10-20
+
+The current source main files were fetched directly, not inferred from the stale PROJECT_STATE.md narrative:
+
+1. src/lib/pipeline.server.ts contains a server-side call to refresh_research_knowledge_cases({ p_lookback_hours: 72 }) after post-mortem generation, with an 8-second timeout and fail-open handling. The caller is an integration point that must be removed or feature-guarded before dropping the RPC.
+2. src/lib/research-knowledge.functions.ts reads both source execution tables and archive tables: trades, strategy_variant_signals, council_lessons, research_evidence, research_findings, research_cases, plus linked composite_signals. The read helper reports an issue rather than treating an unavailable archive table as empty, but exact UI behavior still needs an isolated component test.
+3. src/lib/research-knowledge.ts contains pure cohort, evidence-eligibility, deduplication and finding-validation helpers. Preserve and test these independently of deployed archive tables if useful to IRL.
+4. src/components/trading/ResearchKnowledgePanel.tsx invokes getResearchKnowledge through useServerFn and React Query. Trace the route/component import before decoupling; do not delete the UI module blindly.
+5. The archive SQL refresh materializes trade, composite-signal and variant entry evidence with source created_at in both observed_at and available_at, while using now() for captured_at. The server read path similarly maps trade and linked signal created_at into both observed and available timestamps. These are insertion/creation timestamps, not proof of feature publication, candle close or strategy knowledge time.
+6. The pure helper eligibleEntryEvidence checks observed_at <= available_at <= entry_at. Because both timestamps are copied from created_at, the predicate can pass mechanically without establishing the semantic precondition. A passing predicate is not sufficient evidence that the historical feature was knowable at entry.
+
+### Consequence and required treatment
+
+- Mark archive-generated entry evidence with timestamp semantics unverified until upstream producer/deployment evidence proves otherwise.
+- Do not use those records to claim strict point-in-time/no-look-ahead validity or validated alpha.
+- Preserve original source timestamps and snapshots; do not overwrite historical cases to make the validator pass.
+- Future IRL ingestion should store event_at, observed_at, available_at, ingested_at and a separate temporal-quality status, allowing available_at to remain unknown.
+- Decoupling should be a separately reviewed app change with tests proving the post-mortem/trading pipeline proceeds if the research RPC is absent and the panel displays a clear schema_pending/unavailable state rather than fabricated zero counts.
