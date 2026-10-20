@@ -64,6 +64,15 @@ for table in "${TABLES[@]}"; do
   printf 'public.%s\t%s\t%s\t%s\n' "$table" "$count" "$size" "$checksum" >> "$SNAP/metadata/row-counts.tsv"
 done
 
+# Explicitly inventory every public table not covered by the export allowlist.
+# This is coverage metadata only; it does not export or modify excluded tables.
+while IFS= read -r table; do
+  [[ -z "$table" ]] && continue
+  if ! printf '%s\\n' "${TABLES[@]}" | grep -Fxq -- "$table"; then
+    printf 'public.%s\\n' "$table" >> "$SNAP/metadata/excluded-public-tables.txt"
+  fi
+done < "$SNAP/metadata/public-tables.tsv"
+
 # Schema reference is for review/rebuild, not a blind migration into any existing DB.
 pg_dump "$SOURCE_DATABASE_URL" --schema-only --schema=public --format=custom --no-owner --no-privileges --file="$SNAP/public-schema.dump"
 (
