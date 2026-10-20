@@ -48,3 +48,8 @@ The first CI run for PR #135 passed the new execution-audit tests (3/3) but fail
 ## Change status
 
 No production deployment or trading decision was changed. The defect is in the reported audit coverage metric; the underlying observed gate decisions already have signal IDs. Do not interpret the reported `uncovered_eligible_signals` as evidence that the signals were unprocessed until this accounting bug is corrected and the next production run is checked.
+
+
+## Final CI result for draft PR #135
+
+After the test helper was corrected to enforce the intended candle capture bounds, both GitHub Actions workflows passed on head `69c96aaf8108593bf7efc6509a26dbfd6b8b7418`: Research Lab validation and Research Lab Edge Function validation. The new execution-audit tests passed 3/3 and candle-integrity tests passed 9/9. PR #135 remains draft and is not deployed.
