@@ -57,3 +57,6 @@ Run these in order when the user requests a new research batch. This is a conclu
 35. **Early Entry trade-to-decision reconciliation:** join B/C paper trades to decision ledger rows using `trade_id` and `signal_key`; count orphan trades and orphan decisions; read-only.
 36. **Candle collector universe coverage:** compare symbols selected from recent 5m indicator snapshots (including the 500-row cap) with intended tracked/watchlist and downstream candidate universes; quantify omitted assets and stale coverage.
 37. **Archive runtime state verification:** inspect applied migration history and `research_archive_control` values before describing archive/cleanup as active. Do not enable archive or source deletion as part of this audit.
+
+38. **Early Entry capped-input coverage:** measure row counts, distinct assets, age ranges, and cap-hit indicators for 1h indicators, 5m candles, council, sentiment, and prices; compare against the intended watchlist. Read-only.
+39. **Research-case source-index trade-off:** inspect applied index state, index/table sizes, and representative source-lookup plans/timings. Do not recreate indexes until storage headroom is reviewed.
