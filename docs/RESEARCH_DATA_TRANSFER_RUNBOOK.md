@@ -114,3 +114,37 @@ The transfer is complete only when:
 5. Counts, IDs and hashes reconcile after import.
 6. A reproducible cohort report can be regenerated from imported data.
 7. Source records remain intact.
+
+
+## Exact-count preflight observations (separate read-only statements, not a consistent export snapshot)
+
+The following exact-count queries were run against the canonical source on 2026-10-20. They are diagnostic preflight observations only; because they were separate statements while collectors may continue running, they are **not** a single MVCC snapshot and must not be used as the final import manifest.
+
+| Table | Exact rows in its query | Distinct IDs | Fingerprints |
+|---|---:|---:|---|
+| `composite_signals` | 16,139 | 16,139 | 16,139 non-null / 16,139 distinct |
+| `strategy_variant_signals` | 67,587 | 67,587 | 67,587 non-null / 67,587 distinct |
+| `trades` | 230 | 230 | not applicable |
+| `council_signals` | 4,429 | 4,429 | not applicable |
+| `council_lessons` | 224 | 224 | not applicable |
+| `strategy_shadow_diagnostics` | 111,517 | 111,517 | not applicable |
+| `accumulation_shadow_observations` | 55,409 | 55,409 | not applicable |
+| `early_entry_variant_decisions` | 2,450 | 2,450 | not applicable |
+| `repeated_buy_research_ledger` | 2,632 | 2,632 | not applicable |
+| `asset_sentiment_snapshots` | 30,480 | 30,480 | not applicable |
+| `asset_social_snapshots` | 24,900 | 24,900 | not applicable |
+| `asset_flow_snapshots` | 37,560 | 37,560 | not applicable |
+| `asset_price_snapshots` | 37,560 | 37,560 | not applicable |
+| `market_candles` | 89,258 | 89,258 | not applicable |
+| `whale_alerts` | 57,223 | 57,223 | not applicable |
+| `whale_flow_snapshots` | 10,866 | 10,866 | not applicable |
+| `whale_flow_transitions` | 4,510 | 4,510 | not applicable |
+| `whale_flow_transition_context` | 4,510 | 4,510 | not applicable |
+| `whale_flow_shock_followups` | 4,478 | 4,478 | not applicable |
+| `event_flow_study_snapshots` | 55,615 | 55,615 | not applicable |
+| `research_evidence` | 3,019 | 3,019 | 3,019 non-null / 3,019 distinct |
+| `research_cases` | 3,000 | 3,000 | 2,801 non-null / 2,801 distinct; 199 null |
+
+Timestamp ranges in the core tables are recent in the current source snapshot: `composite_signals` spans 2026-10-14 12:40 UTC to 2026-10-20 11:30 UTC; `strategy_variant_signals` spans 2026-10-14 15:30 UTC to 2026-10-20 11:30 UTC; `strategy_shadow_diagnostics` spans 2026-10-11 19:50 UTC to 2026-10-20 11:30 UTC. This may reflect retention, a reset, or current table scope; the query alone does not establish why. Before claiming all historical knowledge is preserved, inspect source migration/retention history and determine whether older cohorts exist in another table, backup, branch or export. Do not infer that older rows never existed.
+
+Final export manifest must be recomputed in one consistent snapshot, using exact counts and canonical rowset hashes; these preflight figures are not substitutes for that step.
