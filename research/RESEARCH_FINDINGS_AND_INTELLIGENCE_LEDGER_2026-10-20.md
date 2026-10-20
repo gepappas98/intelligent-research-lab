@@ -131,3 +131,11 @@ Further review found that case materialization uses `coalesce(net_pnl,pnl)`, whi
 
 ## Update — experimental exit-policy and maturity-contract parity
 Early Entry B/C source code uses a +6% take-profit and −3% stop, with exit-time max-hold/stale policy read from the shared runtime settings rather than pinned in the entry record. Treat it as its own policy cohort, not directly equivalent to V3's +4%/−3%/72h benchmark. Added a read-only invariant check for terminal V3 outcomes without `resolved_at`, which the RPC counts but the knowledge-case maturity mapping excludes. No entry/exit settings or live strategy were changed.
+
+
+## Live production verification — 2026-10-20 ~15:30 UTC (read-only aggregate queries)
+Canonical Supabase project `yckewtpfttvwiptmmrfq` is active. Archive controls remain disabled (`allow_archive=false`, `allow_source_delete=false`); archive status reports 41,465 eligible sources, 0 archived and 41,465 missing evidence. This supersedes the older 22,150-source snapshot.
+
+V3 source/case reconciliation: 2,115 source V3 rows (2,042 open, 73 terminal) versus 551 V3 cases, all open; 1,564 source rows have no case, 54 terminal rows have stale open cases, and 19 terminal rows have no case. Paper trades: 258 source rows (220 closed, 38 open), with 59 missing cases (36 closed, 23 open) and 20 cases with status/PnL/resolution mismatches. The legacy zero-net-PnL pattern was not observed among the 220 closed trades checked (0 affected).
+
+The live refresh function definition is V3-only despite the migration ledger listing the later archive-gate migration whose checked-in SQL has broader variant scope. Recent pipeline result JSON omits `research_knowledge_sync`, and the latest evidence capture was 2026-10-19 22:35:15 UTC despite continuing 10-minute pipeline runs. The exact refresh invocation history remains unobservable; no refresh RPC was called, no migrations were applied, no source rows were modified, and both archive/delete controls remain false.
