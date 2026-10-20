@@ -69,3 +69,23 @@ The source repository's migration defines compact evidence records with source t
 
 **IRL decision:** reuse the sound knowledge principles—stable source identity, role-separated evidence, no-lookahead timestamp checks, idempotent fingerprints, explicit cohort/PnL units, and fail-closed safety—but do not copy source rows or enable its archive/delete mechanism for this task. IRL transfer remains conclusions-only and manually initiated. The source project's own bounded V3 materialization is a separate workflow and must not be confused with IRL's manual knowledge refresh.
 
+
+
+## Finding F-20261020-07 — Early Entry has a conjunctive transition bottleneck worth measuring
+**Status:** code-derived hypothesis; not a proven defect. **Confidence:** high for gate logic, unknown impact on trade quality.
+
+In the reviewed `early-entry-regime` implementation, activation requires all of the following at once: canonical telemetry currently bullish and fresh (≤20 minutes), a bearish/sideways → bullish transition within 60 minutes, both 1h breadth conditions improving versus the transition baseline (bullish count must increase **and** bearish count must decrease), and current whale flow in accumulation while a neutral/distribution whale state is observed during the transition window. The short-term taker-buy imbalance is explicitly diagnostic/prioritization only, not a hard gate. Candidate entries are then restricted to currently bullish 1h symbols and at most five per activation key.
+
+This is a deliberately strict hypothesis, but it may suppress valid transitions if breadth is flat on one side or if the observation cadence does not capture the required baseline. Do not relax it based only on the six resolved outcomes.
+
+- Source: [early-entry-regime/index.ts at 4e55ba1](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/early-entry-regime/index.ts)
+- Diagnostic test: count transition candidates and classify each rejection by the exact gate; compare the current conjunctive rule with offline-only counterfactual variants (bullish breadth increase **or** bearish breadth decrease; each independently), then link both accepted and rejected decisions to mature outcomes. Freeze the logic during evaluation and prevent look-ahead.
+- Decision rule: do not deploy a looser gate unless an independent window improves net-of-cost expectancy without unacceptable drawdown and without relying on immature outcomes.
+
+## Finding F-20261020-08 — Event → Flow gate order creates an interpretable rejection taxonomy
+**Status:** code-derived; outcome attribution not yet measured. **Confidence:** high for code behavior.
+
+The reviewed function evaluates missing/stale inputs first (no open if any of RSS consensus, Whale Flow, or Binance Spot price is absent), then applies sentiment score ≥+0.15, RSS confidence ≥0.45, flow score ≥+0.10 with dominant state `accumulation`, one active paper position per symbol, and a 15-minute cooldown. Each asset receives a status/reason such as `WAITING_DATA`, `NOT_CONFIRMED`, `ALREADY_OPEN`, `COOLDOWN`, `OPEN_FAILED` or `OPENED`. This rejection ledger is valuable only if status counts are reconciled to later trade outcomes and source freshness.
+
+- Source: [event-flow-paper-open/index.ts at 4e55ba1](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/event-flow-paper-open/index.ts)
+- Next test: report decision-status counts by symbol and time window; for each opened position join the saved sentiment/flow/price timestamps and exit outcome; compare accepted vs rejected opportunities with a defined counterfactual. Do not interpret rejected candidates as wins or losses.
