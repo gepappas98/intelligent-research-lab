@@ -119,3 +119,7 @@ This document consolidates findings previously recorded in project conversations
 
 ## Update — source-reported archive state and evidence coverage (2026-10-20)
 The source repository's latest `PROJECT_STATE.md` reports archive capture and source deletion both disabled, 22,150 eligible source rows still unarchived with missing evidence, 3,000 materialized research cases / 3,019 bounded evidence records, and 551 V3 cases still open with no maturity timestamp. Database size is reported at 464 MB after reindexing; PR #132 and ephemeral PostgreSQL migration tests are complete, while user-controlled Lovable sync/publish and runtime RPC-status verification remain pending. Treat these as source-documented production status, not a fresh independent query from this work session. Archive is paused; no source deletion is reported.
+
+
+## Update — refresh scope, migration ordering, and strategy eligibility audit
+Three additional source-level risks were added to the implementation findings: the knowledge refresh's 72-hour parameter does not bound trade evidence/case scans; the later archive-gate migration replaces the earlier V3-only refresh function with a broader variant scope; and auto-switch branches can consider alternatives with only 8 resolved samples despite the panel's 25-sample “best” threshold. These are source findings, not proof of production runtime behavior. The RPC was not invoked, migrations were not applied, and no strategy switch or production change was made.
