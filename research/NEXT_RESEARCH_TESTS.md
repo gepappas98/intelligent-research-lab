@@ -33,3 +33,5 @@ Run these in order when the user requests a new research batch. This is a conclu
 22. **Pipeline/executor status consistency:** read-only count runs whose top-level `pipeline_runs.status` is completed while the stored `trade-executor` stage has `ok=false` or non-2xx status. Cross-tabulate audit presence/status and actual opened trades. Do not classify these as successful zero-entry runs; no production code changes.
 
 23. **V3 expiry-aware performance reporting:** for each V3 preset and identical window, report wins, losses, expired, open, decision win rate `wins/(wins+losses)`, all-resolved win share `wins/(wins+losses+expired)`, expiry share, and PnL contribution from expired cases. Preserve the current cohort and outcome rows; analysis/reporting only.
+
+24. **V3 ambiguous-outcome coverage:** count `outcome='ambiguous'` separately by preset and source fingerprint; compare it with `resolved + open` shown by the panel. Report terminal cases and scored cases separately, preserve `pnl_pct=NULL`, and do not coerce ambiguity to a financial outcome. Read-only analysis/reporting.
