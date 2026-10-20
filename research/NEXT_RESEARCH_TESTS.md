@@ -134,3 +134,6 @@ Runtime update at 16:42 UTC: variants lineage passed on the first scheduled post
 
 
 Storage follow-up: migration `20261020171000_early_entry_lineage_storage_trim.sql` removed unused direct decision/trade columns and a redundant evaluation index; the evaluation ID remains linked through decision metrics and trade/observation metadata. Existing lineage rows were preserved; total table footprint dropped from 120 kB to 96 kB. Reconfirm the lineage writer still works on the next scheduled baseline run.
+
+
+Security follow-up completed: explicit service-role-only RLS policy added, anon/authenticated SELECT remains false, service_role insert is true, and security advisor reports no finding for the lineage table. Symbol/time index retained for future lineage queries.
