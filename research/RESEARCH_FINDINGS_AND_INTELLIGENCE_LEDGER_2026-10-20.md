@@ -123,3 +123,7 @@ The source repository's latest `PROJECT_STATE.md` reports archive capture and so
 
 ## Update — refresh scope, migration ordering, and strategy eligibility audit
 Three additional source-level risks were added to the implementation findings: the knowledge refresh's 72-hour parameter does not bound trade evidence/case scans; the later archive-gate migration replaces the earlier V3-only refresh function with a broader variant scope; and auto-switch branches can consider alternatives with only 8 resolved samples despite the panel's 25-sample “best” threshold. These are source findings, not proof of production runtime behavior. The RPC was not invoked, migrations were not applied, and no strategy switch or production change was made.
+
+
+## Update — knowledge-case PnL semantics and test coverage
+Further review found that case materialization uses `coalesce(net_pnl,pnl)`, which can treat legacy default-zero net PnL as authoritative even where the risk engine has a fallback to nonzero legacy PnL. Trade cases also store lifecycle `status` in `outcome`, unlike variant cases' economic outcome labels. The archive integration fixture seeds only V3 variant fingerprints, so it cannot catch the later migration's broadened V2/Legacy/Unknown scope. Added read-only tests and ephemeral fixture requirements; no repair or production changes.
