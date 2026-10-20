@@ -197,3 +197,15 @@ The `execution_capacity_observations` schema captures pipeline run ID, signal ID
 Source: [observation schema](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261008163705_add_execution_capacity_observations.sql), [reviewed pipeline caller](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/pipeline.server.ts).
 
 Research implication: inventory the recoverable candidate universe and label absent telemetry as unknown. Any future compact decision telemetry should be versioned and research-only; do not alter execution policy as part of this audit.
+
+
+## Finding F-20261020-19 — Whale Flow Shock “complete_24h” was not proof of paired price coverage
+**Status:** defect and proposed correction documented at reviewed source revision; current production application state is not established by this snapshot. **Confidence:** high for the documented historical defect.
+
+The source tracker records a read-only audit with 546 rows labeled `complete_24h`, of which only 144 had `btc_return_24h` populated. The documented cause is that `refresh_whale_flow_shock_followups()` labeled completeness from flow deltas without requiring the paired BTC price return at the same horizon. A derived 24h follow-up therefore could be marked complete while lacking its paired market-price outcome, making causal or predictive analysis vulnerable to coverage bias.
+
+The corrective migration `20261009050000_fix_whale_flow_shock_data_quality.sql` changes the refresh function and describes recomputing derived follow-up rows while leaving raw observations unchanged. However, the tracker at the reviewed source commit explicitly says this migration had **not** been applied to production at that time. This is historical status evidence, not a claim about today's database state.
+
+Sources: [P0 stabilization tracker at reviewed commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/docs/P0_STABILIZATION_TRACKER.md), [corrective migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261009050000_fix_whale_flow_shock_data_quality.sql).
+
+Research rule: never treat `complete_24h` as validated until paired flow and BTC return exist for the same horizon. Before using the cohort, verify production migration version and recalculate coverage counts by horizon; do not alter raw observations or infer missing returns.
