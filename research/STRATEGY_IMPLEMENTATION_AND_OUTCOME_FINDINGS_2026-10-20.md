@@ -379,3 +379,23 @@ Migration `20261020182000_research_archive_capture_gate.sql` sets `research_arch
 Source: [archive capture gate migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql).
 
 Research rule: verify applied migration history and control-row values before any archive claim; keep source deletion disabled and avoid re-enabling archive writes without explicit review of storage headroom and evidence completeness.
+
+
+## Finding F-20261020-37 — Early Entry variants use global row caps for per-asset context without coverage diagnostics
+**Status:** source-code fact; whether limits truncate the live universe is unknown. **Confidence:** high.
+
+The reviewed `early-entry-variants` function loads recent 1h indicators with a global limit of 2,000, recent 5m candles with a limit of 600, council signals with a limit of 500, sentiment snapshots with a limit of 500, and price snapshots with a limit of 500. The queries are ordered newest-first, then reduced to latest-per-symbol/asset in memory. When qualifying rows exceed any cap, assets with older rows may be absent from that run's candidate or confluence universe. The function does not emit per-query total counts or a coverage ratio to show whether a cap truncated the set.
+
+Source: [early-entry-variants at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/early-entry-variants/index.ts).
+
+Research rule: record eligible-row counts, distinct symbols/assets, age ranges, and cap-hit indicators for each input. Report candidate coverage against the intended watchlist and distinguish `no candidate` from `asset absent from capped input`.
+
+
+## Finding F-20261020-38 — Archive safety migration trades index storage for potentially slower source-case queries
+**Status:** source-code fact; runtime query impact unknown. **Confidence:** high for the index drop, none for its performance impact.
+
+Migration `20261020182000_research_archive_capture_gate.sql` explicitly drops `public.research_cases_source_idx` while pausing archive writes pending storage/evidence review. This reduces index storage, but may increase lookup cost for queries filtering/joining research cases by source, depending on the actual query plan and table size. The source change alone does not establish whether the trade-off is material in production.
+
+Source: [archive capture gate migration](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261020182000_research_archive_capture_gate.sql).
+
+Research rule: measure index size, table size, and representative source-lookup query plans/timings before considering index restoration; do not recreate the index without storage-headroom review.
