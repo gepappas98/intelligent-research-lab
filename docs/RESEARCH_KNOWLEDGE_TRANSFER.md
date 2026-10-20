@@ -289,3 +289,15 @@ The stored score has no technical contribution, while the captured MTF alignment
 - The main orchestrator continued to run every 10 minutes with completed status on 2026-10-20; recent TradingView signal stages persisted 507–517 snapshots per run with one reported worker failure. This proves the whole pipeline was not globally stopped; it does not identify which symbol failed.
 
 **Next safe investigation:** trace why PAXG left the dynamic watchlist and which source collector stopped refreshing it, using read-only watchlist/collector metadata and the per-run worker failure details. Keep this historical signal and its source evidence immutable; no data, trade or pipeline setting was changed during this trace.
+
+### Follow-up: why PAXG stopped refreshing (watchlist history)
+
+A second read-only check of the historical dynamic-watchlist snapshots narrows the explanation:
+
+- PAXG was present as a dynamic candidate on 2026-10-15 at 02:50 and 09:00 UTC.
+- It was still present at 15:00 UTC on Oct 15, then marked pinned by 21:00 UTC, consistent with the later-opened paper position.
+- PAXG remained pinned in snapshots through 2026-10-17 12:00 UTC. The linked paper trade closed at **17:50:30 UTC** on Oct 17 with close reason `stale_exit`; the 18:00:15 UTC watchlist snapshot no longer contained PAXG.
+- The current watchlist code pins core leaders, open positions and a fixed set of RevolutX-discovered symbols. Other symbols must qualify through the refreshed Hyperliquid/CoinMarketCap candidate path, including venue filters and a 150-symbol cap.
+- The latest CMC snapshot does contain PAXG (24h volume about $116.9M, rank 45), but that alone is not sufficient for watchlist eligibility. The live snapshot does not expose whether the exact exclusion was the Binance USDT listing filter, RevolutX active-pair filter, ranking/cap, or another candidate-resolution detail.
+
+**Best-supported conclusion:** the open paper trade appears to have kept PAXG pinned after it ceased being a dynamic candidate; once the position closed, PAXG was no longer retained by the refreshed active universe. The precise candidate-filter reason remains unverified. The candle collector then correctly stopped refreshing non-watchlist PAXG because there was no open position, fresh whale alert, hot-whale entry or BUY signal in its short priority windows. Do not alter the watchlist policy merely to force PAXG back in; if this matters for the experiment, add an explicit research-universe rule in IRL and evaluate its storage/coverage cost separately.
