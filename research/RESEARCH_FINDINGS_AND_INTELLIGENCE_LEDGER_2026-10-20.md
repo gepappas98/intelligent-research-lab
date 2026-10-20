@@ -193,3 +193,6 @@ Follow-up live audit — 2026-10-20 16:32 UTC: the 16:31 variant cycle succeeded
 
 
 Decision lineage reconciliation — 2026-10-20 16:32 UTC: all 12 post-deploy variant decisions (4 each for A/B/C) contained evaluation/close/capture timestamps and passed both temporal inequalities; all were NO_ENTRY. No post-deploy early-entry paper trade was found. Candle collector audit: 426 5m and 217 15m rows since deploy, zero captured before close. For the 19 pre-deploy baseline paper trades, 19/19 had gate diagnostics but 0/19 had candle evaluation/close/capture timestamps or source references. This confirms why exact historical contamination cannot be counted; do not retroactively relabel trades.
+
+
+Gate interpretation from the first offset cycle: 53 candle symbols; whale turn true, but aggregate 5m taker-buy imbalance `-0.1512` and 1h bullish breadth delta `0`. B/C therefore correctly remained NO_ENTRY under their existing positive-taker-buy and breadth/adaptive requirements. This is one observation of gate behavior, not an edge or profitability claim.
