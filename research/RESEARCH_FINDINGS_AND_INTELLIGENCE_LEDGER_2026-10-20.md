@@ -212,3 +212,6 @@ Access hardening: explicit RLS policy now grants table policy access only to `se
 
 
 Defensive timestamp hardening at 16:48 UTC: historical latest-per-symbol rows include some `captured_at < close_time` records, but the active 15-minute input window had zero such rows for both timeframes at audit time. Both evaluators now reject pre-close-captured records in memory as a third temporal condition; current valid rows and strategy gates are unchanged. Deployed versions variants v11 / baseline v16. No historical rewrite.
+
+
+Legacy candle integrity count: 809/24,694 15m rows and 1,069/68,548 5m rows had `captured_at < close_time`, all pre-deploy. Zero were inside the active 15-minute Early Entry input window at the 16:49 UTC audit. No historical row was changed; evaluator-level pre-close guard now protects future decisions. This count is a data-quality population, not a count of contaminated decisions/trades.
