@@ -51,3 +51,9 @@ Run these in order when the user requests a new research batch. This is a conclu
 31. **Early Entry whale-flow query coverage:** measure one-hour `whale_alerts` volume against the 3,000-row cap, inspect whether query ordering is deterministic, and compare accumulation/distribution totals with a reproducible bounded cohort. Record row count, time coverage, and state differences; offline/read-only, no production gate changes.
 
 32. **Archive status consistency:** inspect duplicate status keys in cleanup function responses and compare reported flags with control settings. Read-only; do not invoke cleanup.
+
+33. **Event→Flow duplicate-entry exposure:** compare open Event→Flow trades against the newest-500 preflight window and audit same-asset opens by overlapping invocation time. Read-only; code risk is not proof it occurred.
+34. **Early Entry confluence query integrity:** separately count query errors, empty results, stale inputs, and valid council/sentiment/price data; do not collapse query failure into absence.
+35. **Early Entry trade-to-decision reconciliation:** join B/C paper trades to decision ledger rows using `trade_id` and `signal_key`; count orphan trades and orphan decisions; read-only.
+36. **Candle collector universe coverage:** compare symbols selected from recent 5m indicator snapshots (including the 500-row cap) with intended tracked/watchlist and downstream candidate universes; quantify omitted assets and stale coverage.
+37. **Archive runtime state verification:** inspect applied migration history and `research_archive_control` values before describing archive/cleanup as active. Do not enable archive or source deletion as part of this audit.
