@@ -120,3 +120,6 @@ Run these in order when the user requests a new research batch. This is a conclu
    - Cases: exact close/evaluation equality rejected; just-closed candle accepted; delayed collection accepted only if captured before evaluation; capture after evaluation rejected; unfinished candle rejected; source assertions verify collector and both consumers.
    - Verification: 13/13 code-level assertions passed; GitHub Actions type-check passed for all three functions and Deno suite passed 6/6 (run [39453060338](https://github.com/gepappas98/pixel-perfect-pixels/actions/runs/39453060338)); deployed versions verified active (collector v3, variants v8, regime v13).
    - Preserve historical outcomes: exact affected decision/trade count remains unprovable because historical telemetry lacks immutable candle IDs/timestamps. No retroactive relabeling.
+
+
+Baseline runtime follow-up: the 16:00 orchestrator run stopped at the critical `whale-watch` HTTP 500 stage before calling `early-entry-regime`; verify baseline timestamp telemetry on the next successful scheduled run. Do not invoke manually because it can open paper positions.
