@@ -95,3 +95,5 @@ Run these in order when the user requests a new research batch. This is a conclu
 
 63. **Live execution-audit coverage:** for the latest 50 completed pipeline runs, reconcile eligible BUY, audited eligible, and uncovered counts; identify runs with eligible signals but zero audit coverage. Keep per-run denominators and no-inference rules.
 64. **Recorded rejection taxonomy:** stratify recorded audit events by stage/reason and compare with uncovered-signal counts; report micro-data freshness, confidence, per-symbol-cap and sideways-gate counts without changing any production threshold.
+
+65. **Archive timestamp provenance:** compare `last_archive_at` with the latest `captured_at` for retention-source tables only; ensure general trade/variant evidence cannot make an empty archive appear recently archived.
