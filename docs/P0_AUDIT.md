@@ -137,3 +137,15 @@ The deployed refresh function uses source `created_at` as both `observed_at` and
 ### Current decision
 
 Continue documentation and read-only source tracing only. No production export has yet been created or verified; no IRL writable database has been positively identified; no data has been copied; no source rows, archive tables, functions, policies, cron jobs, trading logic or deployments have been changed by this audit. The next safe phase remains destination identity verification and a secure, checksum-verified export plan before any rollback is considered.
+
+
+## 9. Fresh live snapshot — 2026-10-20 05:31 UTC
+
+A further read-only SQL check supersedes the earlier size and retention counts above:
+
+- Database size: **505,736,339 bytes = 505.74 MB (decimal) / 482.31 MiB (binary)**.
+- Archive rows unchanged: `research_evidence` 3,019; `research_cases` 3,000; `research_findings` 0; `research_archive_control` 1.
+- `get_research_archive_status(72,168)`: `incomplete`; **30,084 eligible, 0 archived, 30,084 missing evidence**. Source capture and source deletion remain disabled.
+- Latest missing-by-source counts: `asset_news_events` 363; `asset_flow_snapshots` 9,450; `whale_flow_snapshots` 1,416; `asset_price_snapshots` 9,450; `whale_flow_transitions` 545; `event_flow_transmissions` 1; `asset_sentiment_snapshots` 7,773; `whale_flow_shock_followups` 541; `whale_flow_transition_context` 545.
+- Current total relation sizes (including indexes/TOAST) for archive tables: evidence 2,039,808 bytes; cases 1,548,288; findings 40,960; control 32,768. Combined: 3,661,824 bytes (~3.49 MiB). Dropping these tables would not solve the database-size problem by itself.
+- The query was read-only; no cleanup function was invoked and no data, policy, schema, cron or trading behavior was changed.
