@@ -652,3 +652,11 @@ Research rule: do not alter cron jobs or reset guard state here. Preserve this a
 `pg_database_size(current_database())` reports 529,591,443 bytes (505.06 MiB), 49,591,443 bytes above the configured 480,000,000-byte threshold. Largest measured table-plus-index footprints include `strategy_shadow_diagnostics` 95.98 MiB, `composite_signals` 78.63 MiB, `strategy_variant_signals` 41.99 MiB, `pipeline_runs` 36.30 MiB, `whale_alerts` 35.09 MiB, `market_candles` 30.34 MiB, and `accumulation_shadow_observations` 25.51 MiB. `research_evidence` is 1.95 MiB and `research_cases` 1.48 MiB; the archive backlog itself is not the largest measured storage consumer yet.
 
 Research rule: prioritize read-only per-table/index size trends and retention/value analysis. Do not delete source rows, change retention, or pause cron as part of this transfer. Note that `pg_stat_user_tables` tuple estimates were inconsistent with earlier exact counts and should not be used as authoritative row counts.
+
+
+## Finding F-20261020-67 — Storage watchdog is disabled and database size has risen above threshold again
+**Status:** direct read-only production snapshot history, approximately 2026-10-20 15:31 UTC. **Confidence:** high for recorded snapshots.
+
+The `cron.job` row for `storage-capacity-watchdog` (job 15, intended every minute) is `active=false`. Hourly `private.storage_size_snapshots` show 477,818,003 bytes at 2026-10-19 21:13 UTC and 482,217,107 bytes at 22:13 UTC, crossing the 480,000,000-byte threshold between those snapshots. The latest saved hourly snapshot at 2026-10-20 15:13 UTC is 526,970,003 bytes; the direct database-size query at ~15:31 UTC is 529,591,443 bytes. From the 2026-10-19 16:13 snapshot (462,163,091 bytes) to 2026-10-20 15:13, net size increased by 64,806,912 bytes in 23 hours, despite interim fluctuations.
+
+The guard's old `triggered_at` remains latched from 2026-10-11 and its watchdog cron is inactive, so there is no active scheduled enforcement to notice the later re-crossing. Do not reactivate, pause, or reschedule the watchdog as part of this research transfer; record for explicit owner decision.
