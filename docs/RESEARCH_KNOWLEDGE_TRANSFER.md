@@ -145,3 +145,8 @@ This snapshot was taken after closing wrong-repository PR #133. It is for incide
 - Existing readiness crons `research-lab-data-readiness` (every 15 minutes) and `research-whale-wave-readiness` (every 5 minutes) are separate pre-existing research collectors/alerts; do not disable them as part of archive cleanup without tracing their purpose.
 
 **Removal decision:** do not drop the four research tables, revert migrations, or disable scheduled jobs blindly. They contain 3,019 evidence rows and 3,000 cases, and the database is close to/over the storage warning line. First export/verify the minimum required metadata, trace all function/policy/cron dependencies, identify the exact changes attributable to the mistaken work, and prepare a reversible rollback plan. The actual record-level transfer into IRL remains blocked until IRL's isolated database is positively identified. No source rows were deleted by the read-only checks.
+
+
+### Current retention preflight (read-only, 2026-10-20)
+
+The deployed `get_research_archive_status(72,168)` returned `status=incomplete`: **29,788 eligible source records, 0 archived, 29,788 missing evidence** across nine retention-source tables. By table: asset news 362; flow snapshots 9,360; whale snapshots 1,397; price snapshots 9,360; whale transitions 537; event-flow transmissions 1; sentiment snapshots 7,698; whale-shock followups 536; whale transition context 537. The result reports both archive and source-delete controls disabled. This is why enabling retention or deleting archive tables now would be unsafe. The reported `last_archive_at` is not evidence that these retention-source records were archived; the current evidence rows are concentrated in trades/signals/variants instead.
