@@ -218,3 +218,16 @@ These are research tasks to resolve with read-only source inspection and reprodu
 5. **Storage/capture safety:** keep archive and source-delete controls disabled while the eligible-source coverage is incomplete. The current retention function's early-return guard was verified read-only; no cleanup invocation or data deletion is part of this work.
 
 Each task should end with source-linked evidence, a versioned reproduction recipe, explicit unknowns and a conclusion that separates verified facts from hypotheses.
+
+## 11. MTF scorer parity — verified source history (2026-10-20)
+
+Read-only inspection of source commit 07a1dabea37a437214271e126113ef35f0de4bca (https://github.com/gepappas98/pixel-perfect-pixels/commit/07a1dabea37a437214271e126113ef35f0de4bca) confirms the explicit scoring-generation boundary:
+
+- **Before V3:** the variant scorer used only the primary 4h direction for its technical contribution (+technical weight for bullish, −technical weight for bearish); 1h and 1d were not part of that variant score. Preserve these historical observations as V2; do not recalculate or rewrite them.
+- **V3/current live base scorer:** the production ruleBasedRecommendation() and calculateVariant() both call the shared calculateWeightedMtfScore() helper for the same 4h/1h/1d inputs with weights 1.0 / 0.65 / 0.65.
+- The helper calculates signed directional weight divided by the total weight of available frames. Missing frames are excluded from the denominator; an available neutral frame contributes zero directional weight but remains in the denominator and therefore dilutes the directional score.
+- The source commit changed the variant fingerprint prefix from v2| to v3| and added separate V3 performance aggregation. This is the correct cohort boundary for the corrected scorer.
+- Six Deno regression tests cover aligned bullish/bearish frames, conflicting frames, missing-frame exclusion, neutral-frame dilution and no available frames.
+- calculateConfiguredShadow() still contains the older multiplicative 1.3/0.7 formula, but current call-site inspection shows it is used as a diagnostic shadow comparator. It is not the ruleBasedRecommendation() production base score and should not be confused with the shared V3 scorer.
+
+**Conclusion:** current live base scoring and V3 variant scoring are aligned on the directional MTF formula and weights. Historical V2 is intentionally incompatible because its variant technical component used only 4h. The old diagnostic shadow formula is a separate comparator. This code-level result does not certify live deployment/version parity or historical outcomes; verify deployed Edge Function versions and record-level fingerprints before drawing performance conclusions. No code or data was changed during this analysis.
