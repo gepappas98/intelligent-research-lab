@@ -105,3 +105,5 @@ Run these in order when the user requests a new research batch. This is a conclu
 
 69. **Repeated-BUY outcome maturity:** reconcile 2,729 ledger rows by entry cohort and resolution state; keep 2,694 null-PnL rows unresolved and report resolved-only results separately. Do not impute missing PnL.
 70. **Storage driver exact counts:** compare exact row counts, table-plus-index sizes and growth trends for diagnostics, composite signals, variants, pipeline runs, whale alerts, candles and accumulation observations; treat `pg_stat_user_tables` tuple estimates as approximate only.
+
+71. **Retention-to-storage alignment:** compare the proposed nine-table archive scope with the largest live table-plus-index consumers; identify growth/retention controls for the largest tables before any cleanup proposal. No archive enablement or source deletion.
