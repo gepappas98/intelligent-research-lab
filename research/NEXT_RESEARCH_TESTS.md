@@ -47,3 +47,5 @@ Run these in order when the user requests a new research batch. This is a conclu
 29. **V3 strategy-name coverage:** list all distinct strategy names returned by the V3 RPC and compare them with the panel's fixed `PRESET_ORDER`; quantify rows/cases/PnL belonging to names not rendered. Read-only; no automatic rename or reclassification.
 
 30. **V3 maturity-matched comparison:** report entry-age distribution, resolved/open/expired/ambiguous coverage by strategy, and results on matched entry cohorts with a common follow-up horizon. Keep open outcomes censored and preserve the original rolling-seven-day view as a separate descriptive metric.
+
+31. **Early Entry whale-flow query coverage:** measure one-hour `whale_alerts` volume against the 3,000-row cap, inspect whether query ordering is deterministic, and compare accumulation/distribution totals with a reproducible bounded cohort. Record row count, time coverage, and state differences; offline/read-only, no production gate changes.
