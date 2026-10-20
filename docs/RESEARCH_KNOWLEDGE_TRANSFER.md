@@ -206,3 +206,15 @@ The following preserves specific prior experiments for later, isolated evaluatio
 - Keep source trade ID, lesson generation time, source strategy/cohort, and whether the provenance lookup succeeded. Unresolved lesson links remain unresolved; do not automatically relink or delete them.
 
 IRL should represent each experiment with immutable configuration/version, predeclared outcome horizon, eligibility/exclusion rules, point-in-time feature availability, and a chronological out-of-sample evaluation plan. Do not connect these experiment definitions to the source app's live scorer or automatic strategy switch.
+
+## 10. Prioritized reproducibility backlog
+
+These are research tasks to resolve with read-only source inspection and reproducible fixtures before drawing conclusions or changing the source application's behavior.
+
+1. **MTF scorer parity:** compare the exact live scorer formula with the V2/V3 variant scorer formulas, including timeframe inputs, weights, missing-timeframe handling, normalization, threshold semantics and version tags. The earlier working hypothesis was that scorer/variant inconsistency could mislead demote-only auto-switch evaluation. Do not assume formulas are aligned because labels are similar; do not change trading behavior as part of IRL research.
+2. **First PAXG BUY forensic trace:** identify the exact current source signal and linked trade/variant records, then trace source IDs, timestamps, pipeline run, scorer/config version, MTF snapshots, strategy preset and available whale/sentiment/context inputs. Older narrative analyses are not evidence for a new signal. If the current record cannot be uniquely identified, mark the investigation blocked rather than guessing.
+3. **V3 maturity/display consistency:** investigate reports such as a V3 variant panel showing zero resolved observations. Reconcile source outcome labels, resolver timestamp, entry time, the defined 72-hour horizon, evaluator version and UI filters. Do not infer failure from zero resolved or label an old open record as a loss.
+4. **Research archive temporal integrity:** preserve raw source timestamps and independently validate when data became available. Existing archive `created_at` → `observed_at/available_at` mapping is unverified and must not be used as a validated point-in-time backtest contract.
+5. **Storage/capture safety:** keep archive and source-delete controls disabled while the eligible-source coverage is incomplete. The current retention function's early-return guard was verified read-only; no cleanup invocation or data deletion is part of this work.
+
+Each task should end with source-linked evidence, a versioned reproduction recipe, explicit unknowns and a conclusion that separates verified facts from hypotheses.
