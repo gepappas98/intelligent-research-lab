@@ -469,3 +469,23 @@ Research rule: reconcile lesson rows by `source_trade_id` and trade flags; disti
 Source: [research-knowledge.functions.ts](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/research-knowledge.functions.ts).
 
 Research rule: preserve per-table exact counts and sample limits alongside every derived snapshot; mark truncated cohorts explicitly. Do not calculate full-history rates from the bounded sample without stratified/batched coverage.
+
+
+## Finding F-20261020-46 — Early Entry taker-buy diagnostic can use an unfinished 5-minute candle
+**Status:** source-code fact; outcome impact not measured. **Confidence:** high for the data path.
+
+`market-candle-collector` requests the latest three Binance klines for each symbol/timeframe and stores all returned valid rows without filtering for `close_time <= now()`. Binance's latest kline can be the still-forming candle, whose scheduled `close_time` is in the future. `early-entry-variants` then reads 5-minute candles with `close_time >= now()-15 minutes`, orders descending by `close_time`, and retains the first row per symbol. A future close_time makes the unfinished candle the newest row; its `quote_volume` and `taker_buy_quote_volume` are partial, yet the function uses them to compute cross-sectional taker imbalance.
+
+Sources: [market-candle-collector](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/market-candle-collector/index.ts), [early-entry-variants](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/early-entry-variants/index.ts).
+
+Research rule: separate closed-candle and in-progress-candle metrics. Recompute historical taker imbalance using only candles with `close_time <= observation_time`, compare it with the current diagnostic, and quantify the differences before changing any gate.
+
+
+## Finding F-20261020-47 — Event→Flow sentiment, flow and price inputs have global row caps across assets
+**Status:** source-code fact; actual cap-hit incidence unknown. **Confidence:** high.
+
+The `event-flow-paper-open` function queries recent RSS sentiment with `limit(100)`, flow snapshots with `limit(200)`, and price snapshots with `limit(200)`, then builds latest-per-asset maps. These are global caps across all tracked assets, not per-asset limits. If the recent snapshot row count exceeds a cap, some assets can be absent from the maps even if they have a qualifying row within the freshness window. The function fails on query errors, but a successful capped query does not report whether the intended asset universe was fully covered.
+
+Source: [event-flow-paper-open](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/event-flow-paper-open/index.ts).
+
+Research rule: compare exact eligible row counts and distinct assets with each cap, measure per-asset coverage, and classify absent inputs as `no recent row` versus `asset omitted by capped sample` wherever evidence permits.
