@@ -239,3 +239,13 @@ The V3 RPC counts `win`, `loss`, and `expired` as resolved and sums `pnl_pct` ac
 Sources: [V3 benchmark RPC migration at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql), [Variant Comparison panel at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx).
 
 Research rule: report wins, losses, expired, and open separately; calculate and label both decision win rate (`wins/(wins+losses)`) and all-resolved win share (`wins/resolved`) where useful. Never infer that expired outcomes are wins or losses, and keep expired PnL in net benchmark performance.
+
+
+## Finding F-20261020-23 — Terminal `ambiguous` outcomes disappear from V3 summary counts
+**Status:** code-path fact at reviewed source commit; actual row count unknown. **Confidence:** high.
+
+The resolver can persist `outcome = 'ambiguous'`, `resolved_at` set, and `pnl_pct = null` when TP and SL cannot be ordered from available candles. The V3 RPC defines `resolved` as only `win`, `loss`, or `expired`, and `open_count` as only `open`. The Variant Comparison panel derives `totalObserved = totalResolved + totalOpen`. Thus terminal ambiguous rows are neither resolved nor open in the displayed totals, and the panel can understate the number of evaluated/terminalized cases. Null PnL is appropriate for unresolved path ordering; omission from cohort coverage counts is the reporting gap.
+
+Sources: [variant-resolver at reviewed source commit](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/functions/variant-resolver/index.ts), [V3 RPC definitions](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql), [Variant Comparison panel](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/components/trading/VariantComparisonPanel.tsx).
+
+Research rule: report `ambiguous` separately as a terminal non-scored outcome; keep its PnL null and exclude it from win/loss profitability calculations, but include it in total case-coverage accounting. Do not reclassify it as expired, win, loss, or zero PnL.
