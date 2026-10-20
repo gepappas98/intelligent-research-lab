@@ -109,3 +109,14 @@ Migration 20261018120000_variant_benchmark_v3.sql defines the general get_varian
 **Research implication:** every exported benchmark snapshot must record the exact RPC/function name, date window, source-fingerprint cohort rule, outcome categories, PnL unit, and observation timestamp. Never label results V3 merely because they came from the generic function, and do not silently exclude expired cases. Confirm deployed RPC and UI wiring separately before comparing historical panels.
 
 Source: [20261018120000_variant_benchmark_v3.sql](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/supabase/migrations/20261018120000_variant_benchmark_v3.sql).
+
+## Finding F-20261020-11 — Risk metrics and entry enforcement differ in research mode
+**Status:** source behavior verified; runtime path/deployment parity unverified. **Confidence:** high for the shown source revision.
+
+At the reviewed source revision, risk.engine.ts defines a normal-mode limit of 3 open positions, per-trade stop-risk 0.15% of equity, aggregate open stop-risk 1.2%, and a daily economic-loss limit of 1.2%. Its file-level contract explicitly says research mode continues calculating/persisting normal risk metrics for telemetry but does not use capacity/economic brakes to reject BUY opportunities; the max-position and daily-loss checks are conditioned on !researchMode. The same file documents a loss-streak halt (3 or more losses among the last 5 closed trades), so its exact interaction with researchMode and the actual caller must be inspected rather than inferred from the header alone.
+
+The implementation also has a compatibility fallback for realized PnL: if net_pnl is null, or is zero while legacy pnl is non-zero, it uses pnl. That is a deliberate recovery for rows where a migration's default zero may not represent a true fee-aware result. Any independent reconciliation must retain both fields and flag the fallback cases rather than assume net_pnl=0 means a genuine zero.
+
+**Research implication:** distinguish risk telemetry from actual rejection/enforcement in every report. Record researchMode, active guard, rejection reason, and caller path. Reconcile pnl/net_pnl, fee treatment, and close status before deriving performance. Do not assume a configured cap is active in research mode, and do not infer live-trading behavior from this paper-only risk engine.
+
+Source: [risk.engine.ts](https://github.com/gepappas98/pixel-perfect-pixels/blob/4e55ba120f37fe959d8dd4256ee6536cedfe5253/src/lib/risk.engine.ts).
