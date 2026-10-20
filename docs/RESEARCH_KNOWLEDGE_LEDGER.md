@@ -203,3 +203,44 @@ Every imported or derived fact must be marked as one of:
 - **UNVERIFIED:** semantics, provenance or current implementation not yet established.
 
 Never upgrade a hypothesis or historical report to “validated” without a reproducible test and evidence links.
+
+
+## 12. Source-code-verified strategy preset weights (main branch snapshot)
+
+The following were read from `src/lib/strategy.presets.ts` in the source repository on 2026-10-20. These are configured weights, not empirical rankings:
+
+| Preset | Whale weight | Technicals weight | Council weight | Interpretation from label/config |
+|---|---:|---:|---:|---|
+| balanced | 1.0 | 1.0 | 1.0 | equal weighting |
+| whale-focused | 2.0 | 0.5 | 0.5 | emphasizes whale flow |
+| chart-trader | 0.5 | 2.0 | 0.5 | emphasizes technicals |
+| sentiment-first | 0.5 | 0.5 | 0.5 | low-weight / sentiment shadow label; not a high sentiment weight |
+| ai-driven | 0.5 | 0.5 | 2.0 | emphasizes Council |
+| conservative | 1.2 | 1.2 | 1.2 | modest uniform weighting |
+| volatility-timing | 0.3 | 2.2 | 1.0 | label: BB + Aroon Timing |
+| vwap-momentum | 0.5 | 2.2 | 0.8 | label: VWAP + RSI Intraday |
+| smc-reversal | 0.4 | 2.5 | 0.8 | label: SMC Pro (BOS + ChoCh) |
+
+The source default is `balanced` with weights 1.0/1.0/1.0. The strategy configuration path has historically defaulted automatic switching to disabled and a 4-hour interval. Actual database configuration may differ from code defaults; preserve both as separate facts.
+
+## 13. Source-code-verified MTF gate status and evidence strength
+
+The source file `src/lib/mtf-gate.ts` on the inspected main branch defines:
+- `DEFAULT_MTF_GATE_CONFIG.enabled = false`
+- `shadow_mode = true`
+- `min_timeframes = 2`
+- The helper counts three signals named `primary`, `fast`, and `trend`; it does not itself establish which exact candle intervals those labels represent.
+- It checks the number of timeframes confirming the requested direction; it does not penalize opposing timeframes beyond reporting their count.
+
+The same source comment describes empirical backing from only 10 closed trades in September 2026 and claims a +74% net PnL improvement in a backtest. This is a **small, in-sample historical claim** until independently reproduced with full trade IDs, the exact split, fee assumptions, scorer version and a genuinely held-out time window. Do not import the claimed uplift as validated performance. The current default being disabled/shadow also means “2/3 MTF gate” must not be described as necessarily active in the source runtime.
+
+## 14. Variant performance SQL semantics verified from the historical migration
+
+Migration `20261012173000_variant_benchmark_cohorts.sql` defines two separate functions:
+- `get_variant_performance(days)`: BUY variant rows with `created_at >= now() - days`, excluding `v2|%` fingerprints (but including NULL fingerprints).
+- `get_variant_performance_v2(days)`: BUY variant rows in the same `created_at` lookback whose fingerprint matches `v2|%`.
+- Both count only `win`, `loss`, and `expired` as resolved; `open` is counted separately. They sum `pnl_pct` for those terminal outcomes.
+- This lookback is based on signal creation time, not necessarily outcome-resolution time or entry maturity. It can therefore show different cohort coverage from a matured-outcome benchmark and must not be treated as an equivalent evaluator.
+- NULL fingerprints are included in the legacy function but excluded from V2. Record this difference when comparing historical outputs.
+
+This source-level finding reinforces the rule: Legacy/V2/V3 are separate and function names alone do not guarantee comparable samples. IRL should store the query/evaluator definition hash alongside every imported aggregate.
