@@ -60,3 +60,6 @@ Run these in order when the user requests a new research batch. This is a conclu
 
 38. **Early Entry capped-input coverage:** measure row counts, distinct assets, age ranges, and cap-hit indicators for 1h indicators, 5m candles, council, sentiment, and prices; compare against the intended watchlist. Read-only.
 39. **Research-case source-index trade-off:** inspect applied index state, index/table sizes, and representative source-lookup plans/timings. Do not recreate indexes until storage headroom is reviewed.
+
+40. **CMC snapshot freshness:** report `dynamic_watchlist_snapshots.computed_at` and `cmc_listing_snapshots.captured_at` age at CMC paper entry; separate fresh Spot price from potentially stale CMC context.
+41. **CMC active-position preflight coverage:** compare all open CMC paper trades against the newest-1,000 trade query and inspect same-symbol opens by invocation time. Read-only; don't infer duplicates from source alone.
