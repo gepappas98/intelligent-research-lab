@@ -92,3 +92,6 @@ Run these in order when the user requests a new research batch. This is a conclu
 60. **Live paper-trade case reconciliation:** compare all source trades with cases/evidence by stable IDs; classify missing open/closed cases and status/PnL/resolution mismatches. Preserve source rows and defer repair until manual-refresh policy is approved.
 61. **Applied migration vs active function:** compare the migration ledger, checked-in migration files and live `pg_get_functiondef` output in a read-only audit; explain the V3-only runtime body vs broader checked-in migration without reapplying migrations.
 62. **Refresh observability:** verify whether final orchestrator persistence overwrites `research_knowledge_sync` telemetry; design a compact merge/preserve contract and prove status is retained in ephemeral tests before any approved source deployment.
+
+63. **Live execution-audit coverage:** for the latest 50 completed pipeline runs, reconcile eligible BUY, audited eligible, and uncovered counts; identify runs with eligible signals but zero audit coverage. Keep per-run denominators and no-inference rules.
+64. **Recorded rejection taxonomy:** stratify recorded audit events by stage/reason and compare with uncovered-signal counts; report micro-data freshness, confidence, per-symbol-cap and sideways-gate counts without changing any production threshold.
