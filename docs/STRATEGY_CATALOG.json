@@ -1,0 +1,220 @@
+{
+  "schema_version": "1.0.0",
+  "captured_at": "2026-10-20",
+  "source_repository": "gepappas98/pixel-perfect-pixels",
+  "destination_repository": "gepappas98/intelligent-research-lab",
+  "status": "research knowledge transfer; not a production database export",
+  "source_code_refs": {
+    "strategy_presets": {
+      "path": "src/lib/strategy.presets.ts",
+      "blob_sha": "7cc986bec088e846bd42fddb5ec1a75dc00de021",
+      "ref": "main"
+    },
+    "mtf_gate": {
+      "path": "src/lib/mtf-gate.ts",
+      "blob_sha": "7df5c9697beda70da724f87376f9ff125c2888cd",
+      "ref": "main"
+    },
+    "variant_benchmark_migration": {
+      "path": "supabase/migrations/20261012173000_variant_benchmark_cohorts.sql",
+      "blob_sha": "303254bfdbc307614f55855950f372282d962efd",
+      "ref": "main"
+    }
+  },
+  "presets": [
+    {
+      "name": "balanced",
+      "whale_weight": 1,
+      "technicals_weight": 1,
+      "council_weight": 1,
+      "label": "Balanced",
+      "evidence_status": "CONFIG-RECORDED"
+    },
+    {
+      "name": "whale-focused",
+      "whale_weight": 2,
+      "technicals_weight": 0.5,
+      "council_weight": 0.5,
+      "label": "Whale-Focused",
+      "evidence_status": "CONFIG-RECORDED"
+    },
+    {
+      "name": "chart-trader",
+      "whale_weight": 0.5,
+      "technicals_weight": 2,
+      "council_weight": 0.5,
+      "label": "Chart Trader",
+      "evidence_status": "CONFIG-RECORDED"
+    },
+    {
+      "name": "sentiment-first",
+      "whale_weight": 0.5,
+      "technicals_weight": 0.5,
+      "council_weight": 0.5,
+      "label": "Low-Weight (Sentiment Shadow)",
+      "evidence_status": "CONFIG-RECORDED",
+      "note": "Weights do not imply a strong sentiment feature; verify actual scorer path."
+    },
+    {
+      "name": "ai-driven",
+      "whale_weight": 0.5,
+      "technicals_weight": 0.5,
+      "council_weight": 2,
+      "label": "AI-Driven",
+      "evidence_status": "CONFIG-RECORDED"
+    },
+    {
+      "name": "conservative",
+      "whale_weight": 1.2,
+      "technicals_weight": 1.2,
+      "council_weight": 1.2,
+      "label": "Conservative",
+      "evidence_status": "CONFIG-RECORDED"
+    },
+    {
+      "name": "volatility-timing",
+      "whale_weight": 0.3,
+      "technicals_weight": 2.2,
+      "council_weight": 1,
+      "label": "BB + Aroon Timing",
+      "evidence_status": "CONFIG-RECORDED"
+    },
+    {
+      "name": "vwap-momentum",
+      "whale_weight": 0.5,
+      "technicals_weight": 2.2,
+      "council_weight": 0.8,
+      "label": "VWAP + RSI Intraday",
+      "evidence_status": "CONFIG-RECORDED"
+    },
+    {
+      "name": "smc-reversal",
+      "whale_weight": 0.4,
+      "technicals_weight": 2.5,
+      "council_weight": 0.8,
+      "label": "SMC Pro (BOS + ChoCh)",
+      "evidence_status": "CONFIG-RECORDED"
+    }
+  ],
+  "cohorts": {
+    "Legacy": {
+      "status": "HISTORICAL-REPORT",
+      "rule": "Historical benchmark rows; preserve old semantics and never merge blindly with V2/V3."
+    },
+    "V2": {
+      "status": "CONFIG-RECORDED",
+      "rule": "Historical deduplicated variant cohort; source fingerprint prefix v2|; verify current producer and SQL definition."
+    },
+    "V3": {
+      "status": "CONFIG-RECORDED",
+      "rule": "Aligned-MTF scoring cohort; source fingerprint prefix v3| was previously used; verify current producer and scorer version."
+    },
+    "Unknown": {
+      "status": "UNVERIFIED",
+      "rule": "Use when cohort/scorer cannot be defensibly determined; do not infer from incomplete fields."
+    }
+  },
+  "experiments": [
+    {
+      "id": "mtf-alignment",
+      "status": "HYPOTHESIS",
+      "timeframes_of_interest": [
+        "5m",
+        "15m",
+        "1h",
+        "4h",
+        "1d"
+      ],
+      "historical_gate": {
+        "min_confirming_timeframes": 2,
+        "counted_timeframes": 3
+      },
+      "source_default": {
+        "enabled": false,
+        "shadow_mode": true,
+        "min_timeframes": 2
+      },
+      "caveat": "Source code comment's claimed +74% net PnL improvement was based on 10 closed trades; not independently validated."
+    },
+    {
+      "id": "early-entry-transition",
+      "status": "HYPOTHESIS",
+      "transition": [
+        "bear",
+        "neutral",
+        "accumulation"
+      ],
+      "candidate_inputs": [
+        "short-window technical breadth change",
+        "BTC regime",
+        "MTF structure",
+        "whale-flow transition context",
+        "Council signals/lessons",
+        "asset-specific sentiment"
+      ],
+      "caveat": "Do not require an already bullish regime; preserve each input timestamp and missingness. Optional boosters are not hard blockers unless a variant explicitly declares them."
+    },
+    {
+      "id": "flow-lab-paper-open",
+      "status": "HISTORICAL-REPORT",
+      "historical_gates": {
+        "fresh_rss_sentiment_min": 0.25,
+        "confidence_min": 0.55,
+        "whale_flow_accumulation_min": 0.1,
+        "fresh_binance_spot_price_required": true,
+        "assets_checked": 30,
+        "cooldown_hours": 6
+      },
+      "initial_reported_open_count": 0,
+      "caveat": "Initial zero-open result requires per-gate diagnostics; do not loosen gates blindly. Research-only; no live execution."
+    },
+    {
+      "id": "sideways-microtrend",
+      "status": "HYPOTHESIS",
+      "proposed_entry_context": [
+        "Sideways regime",
+        "strong bullish 5m/15m/1h",
+        "whale-flow > +5%"
+      ],
+      "caveat": "Define the scale and denominator of the +5% whale-flow threshold. It is not interchangeable with the +0.10 Flow Lab score."
+    },
+    {
+      "id": "news-whale-price-leadlag",
+      "status": "HYPOTHESIS",
+      "proposed_sequence": [
+        "news/event publication and availability",
+        "whale-flow response",
+        "price response"
+      ],
+      "horizons_hours": [
+        24,
+        72
+      ],
+      "caveat": "Readiness alerts mean enough mature observations may exist for analysis; they are not trading signals or evidence of causality."
+    }
+  ],
+  "benchmark_assumptions": {
+    "take_profit_pct": 4,
+    "stop_loss_pct": -3,
+    "expiry_hours": 72,
+    "nominal_entry_usd": 1000,
+    "entry_reference": "historical candle close; exact producer semantics require validation",
+    "status": "CONFIG-RECORDED",
+    "note": "Benchmark assumptions are not realized performance and must be versioned per cohort."
+  },
+  "temporal_safety": {
+    "entry_evidence_rule": "observed_at <= available_at <= entry_at",
+    "immutable_entry_snapshot": true,
+    "outcomes_append_only": true,
+    "unresolved_is_loss": false,
+    "created_at_is_event_time_by_default": false,
+    "require_source_ids_and_fingerprints": true
+  },
+  "source_data_policy": {
+    "preserve_source_rows": true,
+    "copy_raw_pipeline_runs_result_json": false,
+    "keep_legacy_v2_v3_separate": true,
+    "require_destination_project_verified_before_import": true,
+    "production_deletion_authorized": false
+  }
+}

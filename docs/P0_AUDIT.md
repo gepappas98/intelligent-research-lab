@@ -103,3 +103,105 @@ Before building ingestion or outcome calculations, define and test:
 ## Safety boundary
 
 This document records observed facts and remaining questions, not a certification of system health or data correctness. The audit did not alter the existing Trading Command Center, execute trades, write to its tables, or apply migrations.
+
+
+## 8. Addendum — wrong-repository archive state and dependency trace (2026-10-20)
+
+This addendum supersedes earlier source-size/count snapshots only where explicitly stated. Earlier measurements above remain historical observations, not current values.
+
+### Latest source-side archive snapshot
+
+Read-only inspection of the canonical Trading Command Center project `yckewtpfttvwiptmmrfq` reported:
+
+- Database size: **504,605,843 bytes (~481 MB)**.
+- `research_evidence`: 3,019 rows; `research_cases`: 3,000 rows; `research_findings`: 0 rows; `research_archive_control`: 1 row.
+- Archive capture and source deletion are both disabled.
+- Retention preflight: 29,790 eligible source rows, 0 archived and 29,790 missing evidence. Coverage is incomplete; do not enable retention or delete source rows.
+- Permissive `SELECT USING (true)` policies for `anon` and `authenticated` were observed on the archive tables. No policy changes have been made.
+- The archive-specific applied migration history and cron dependencies are documented in [the containment plan](WRONG_REPO_CONTAINMENT_AND_ROLLBACK.md) and [dependency inventory](WRONG_REPO_DEPENDENCY_INVENTORY.md).
+
+### Confirmed source application dependency paths
+
+Read-only GitHub inspection of the current source `main` found:
+
+1. `src/lib/pipeline.server.ts` calls `refresh_research_knowledge_cases({ p_lookback_hours: 72 })` after post-mortem generation, with an 8-second timeout and fail-open handling. A failure is logged/recorded; the code says the trading flow continues unchanged.
+2. `src/lib/research-knowledge.functions.ts` reads `research_evidence`, `research_cases` and `research_findings`, and calls `get_research_archive_status(72,168)`.
+3. `src/components/trading/ResearchKnowledgePanel.tsx` imports the server reader and displays the bounded research snapshot; the component is mounted from `src/routes/index.tsx` and `src/pages/AIReport.tsx`.
+4. `src/lib/_tests_/research-knowledge.test.ts` covers pure temporal eligibility, cohort isolation, outcome maturity, evidence linkage and fail-closed archival contracts. Retain these tests where useful even if the wrong-repository persistence integration is later decoupled.
+5. The archive-specific SQL functions are not isolated from the app yet. Dropping tables/functions before a separately reviewed caller-decoupling change would leave the current reader dependent on missing tables and the pipeline attempting a missing RPC.
+
+### Material semantic limitation
+
+The deployed refresh function uses source `created_at` as both `observed_at` and `available_at` for trades, composite signals and variant signals. Current source inspection does not establish that this is the actual event time or earliest strategy-availability time. The function also does not independently compute the 72-hour maturity boundary from entry time. Treat these generated archive timestamps/maturity labels as unverified; do not import them as authoritative IRL point-in-time facts.
+
+### Current decision
+
+Continue documentation and read-only source tracing only. No production export has yet been created or verified; no IRL writable database has been positively identified; no data has been copied; no source rows, archive tables, functions, policies, cron jobs, trading logic or deployments have been changed by this audit. The next safe phase remains destination identity verification and a secure, checksum-verified export plan before any rollback is considered.
+
+
+## 9. Fresh live snapshot — 2026-10-20 05:31 UTC
+
+A further read-only SQL check supersedes the earlier size and retention counts above:
+
+- Database size: **505,736,339 bytes = 505.74 MB (decimal) / 482.31 MiB (binary)**.
+- Archive rows unchanged: `research_evidence` 3,019; `research_cases` 3,000; `research_findings` 0; `research_archive_control` 1.
+- `get_research_archive_status(72,168)`: `incomplete`; **30,084 eligible, 0 archived, 30,084 missing evidence**. Source capture and source deletion remain disabled.
+- Latest missing-by-source counts: `asset_news_events` 363; `asset_flow_snapshots` 9,450; `whale_flow_snapshots` 1,416; `asset_price_snapshots` 9,450; `whale_flow_transitions` 545; `event_flow_transmissions` 1; `asset_sentiment_snapshots` 7,773; `whale_flow_shock_followups` 541; `whale_flow_transition_context` 545.
+- Current total relation sizes (including indexes/TOAST) for archive tables: evidence 2,039,808 bytes; cases 1,548,288; findings 40,960; control 32,768. Combined: 3,661,824 bytes (~3.49 MiB). Dropping these tables would not solve the database-size problem by itself.
+- The query was read-only; no cleanup function was invoked and no data, policy, schema, cron or trading behavior was changed.
+
+
+## 7. Fresh canonical source snapshot — 2026-10-20 11:34 UTC
+
+A new read-only SQL snapshot was taken from the verified canonical TCC project `yckewtpfttvwiptmmrfq`. Database size was **526,126,227 bytes (~502 MB)**. This is a newer and larger measurement than the earlier 481 MiB / 504,605,843-byte snapshot; the different query/measurement times explain the difference. Treat this as a new baseline, not a deletion trigger.
+
+### Largest observed relations
+
+| Table | Estimated live rows | Total relation size |
+|---|---:|---:|
+| `strategy_shadow_diagnostics` | 111,517 | 93 MB |
+| `composite_signals` | 16,139 | 75 MB |
+| `strategy_variant_signals` | 67,587 | 40 MB |
+| `pipeline_runs` | 858 | 36 MB |
+| `whale_alerts` | 57,223 | 33 MB |
+| `market_candles` | 89,258 | 30 MB |
+| `accumulation_shadow_observations` | 55,409 | 25 MB |
+| `asset_sentiment_snapshots` | 30,457 | 16 MB |
+| `asset_social_snapshots` | 24,900 | 15 MB |
+| `asset_flow_snapshots` | 37,530 | 12 MB |
+| `event_flow_study_snapshots` | 55,585 | 12 MB |
+| `asset_price_snapshots` | 37,530 | 11 MB |
+
+Sizes include indexes/TOAST where applicable. Row counts are PostgreSQL planner statistics, not exact counts. The largest measured relation is now `strategy_shadow_diagnostics`, not `pipeline_runs`; both should be investigated by retention/value policy, but neither should be deleted as part of this transfer. This is a storage triage observation, not permission to clean up data.
+
+Archive tables in this same snapshot:
+- `research_evidence`: estimated 3,019 rows; ~1.95 MiB.
+- `research_cases`: estimated 3,000 rows; ~1.48 MiB.
+- `research_findings`: 0 estimated rows; 40 KiB.
+- `research_archive_control`: one row; 32 KiB.
+
+The archive tables are only a few MiB together; dropping them would not solve the main storage pressure. Do not roll them back blindly.
+
+### Current strategy_config row — distinct from code defaults
+
+The live row with `id=1` returned:
+- `preset_name = conservative`
+- whale / technicals / council weights = 1.2 / 1.2 / 1.2
+- prediction weight = 0
+- `auto_switch_enabled = true`
+- `auto_switch_interval_hours = 1`
+- updated at `2026-10-17T13:30:04.845Z`
+- last auto-switch reasoning references a sample of only two resolved observations, 4.00% average PnL and 100% win rate.
+
+This is a source configuration snapshot, not a change made by IRL. It differs from code defaults and from the historical policy description requiring at least 25 resolved observations. The 2-sample result is statistically weak; investigate the exact current auto-switch implementation and its eligibility gate before interpreting it. IRL itself must not change the source configuration or switch presets.
+
+### Fresh core row-count estimates
+
+The same snapshot estimated `trades` 230, `composite_signals` 16,139, `strategy_variant_signals` 67,587, `council_signals` 4,429, `council_lessons` 224, `indicator_snapshots` 691, `pipeline_runs` 858, `whale_alerts` 57,223, `asset_sentiment_snapshots` 30,457, `asset_flow_snapshots` 37,530, `asset_price_snapshots` 37,530, `whale_flow_snapshots` 10,866, `whale_flow_transitions` 4,510, `whale_flow_transition_context` 4,426, `whale_flow_shock_followups` 4,475, `accumulation_shadow_observations` 55,409, `early_entry_variant_decisions` 2,450, `repeated_buy_research_ledger` 2,632, and `strategy_shadow_diagnostics` 111,517. These are planner estimates and must be replaced with exact counts from a consistent MVCC export before import.
+
+### Immediate implications
+
+1. The immediate space problem is not solved by moving only the archive tables; they are too small.
+2. The knowledge transfer should prioritize strategy outcomes, shadow diagnostics, Early Entry decisions, whale transitions/follow-ups, price/flow/sentiment context and their source IDs, while preserving full source history.
+3. High-volume raw snapshot data should be transferred as bounded, versioned observations with provenance; large JSON blobs should not be copied indiscriminately.
+4. A destination database is still unverified. Therefore no production data has been exported/imported into IRL yet and no target migration is applied.
