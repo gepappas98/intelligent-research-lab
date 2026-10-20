@@ -73,3 +73,5 @@ Run these in order when the user requests a new research batch. This is a conclu
 
 47. **Closed-candle taker imbalance:** compare Early Entry's current latest-per-symbol 5m candle selection with a closed-candle-only selection (`close_time <= observed_at`); quantify incomplete-candle contribution and score differences without changing production gates.
 48. **Event→Flow global input coverage:** measure eligible RSS/flow/price rows and distinct assets against limits 100/200/200; quantify assets omitted from the latest-per-asset maps. Read-only.
+
+49. **Council lesson consistency:** verify lesson outcomes against the linked trade result; count mismatches without editing historical rows.
