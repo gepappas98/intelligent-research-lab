@@ -137,3 +137,22 @@ Therefore the archive is not ready to serve as the Observatory's canonical outco
 ### Historical sentiment-cleanup SQL recovery
 
 The two migration records exist in the production migration history, but their SQL files were not found in the current `main` tree, eight examined relevant branches, GitHub file/commit searches, or the existing archive's repository-file path index. Their exact DELETE predicates cannot be safely reconstructed from migration names alone. Keep this as an unresolved forensic item; do not recreate guessed SQL or claim exact historical deletion scope without a trusted commit, backup, or audit log.
+
+
+## Post-transfer verification — 2026-10-22 (supersedes the earlier pre-transfer gap counts)
+
+A bounded, append-only reconciliation was completed against the verified archive project `ragdznxfozdpxetwisrd`. It copied only missing source rows and appended newer versions for changed `research_cases` outcome states. The canonical source `yckewtpfttvwiptmmrfq` was not modified; no source deletes, schema changes, or retention-flag changes occurred.
+
+| Dataset | Source rows at final verification | Latest archive distinct IDs | Missing IDs | Extra IDs | Full-row SHA-256 mismatches |
+|---|---:|---:|---:|---:|---:|
+| `research_cases` | 8,592 | 8,592 | 0 | 0 | 0 |
+| `research_evidence` | 8,628 | 8,628 | 0 | 0 | 0 |
+| `early_entry_variant_decisions` | 3,490 | 3,490 | 0 | 0 | 0 |
+
+The final verification compared full-row SHA-256 hashes using PostgreSQL `pgcrypto.digest`. For `research_cases`, earlier archived versions are retained; consumers must select the latest version per `id` by `updated_at` (then archive `generated_at` as a tie-breaker) before treating the archive as the current-state mirror. The new append-only batches carry per-row SHA-256 hashes in `payload.record_hashes`.
+
+The archive now contains 436 documents and occupies about 17 MB. The three reconciled datasets are complete **as of this verification snapshot**; new source writes can create future deltas, so rerun reconciliation before any source retention or deletion is enabled.
+
+This is not a full production transfer and does not prove the full repository code backup succeeded. PR [#140](https://github.com/gepappas98/pixel-perfect-pixels/pull/140) is merged at `4ae407ec2528456dc7baf210394643002a7cea1d`, but the archive still contains no `code-backup-latest` pointer or `code-snapshot-manifest-*` document. The full-repository backup is therefore **not yet verified**. The available GitHub connection cannot list GitHub Actions secret names or dispatch/inspect the push-triggered workflow run; confirm the two secrets in the `research-lab-archive` environment and run [the backup workflow](https://github.com/gepappas98/pixel-perfect-pixels/actions/workflows/research-lab-code-backup.yml). Accept success only when the run summary explicitly reports `all_tracked_files_included: true`.
+
+The archive table privilege-hardening migration remains in open PR #8 and has not been applied. Keep `allow_archive=false` and `allow_source_delete=false`; no source cleanup is authorized by this reconciliation.
