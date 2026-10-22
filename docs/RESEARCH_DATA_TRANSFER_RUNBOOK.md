@@ -1,13 +1,13 @@
 # IRL Research Data Transfer Runbook
 
-**Status:** operational plan ready; production export/import not yet executed  
+**Status:** IRL destination identity verified 2026-10-22; production export/import not yet executed; schema/privilege hardening and exact source-ID/hash reconciliation remain open  
 **Source:** canonical TCC Supabase project `yckewtpfttvwiptmmrfq`  
-**Target:** IRL isolated database (project identity currently unverified)  
+**Target:** verified Supabase project `ragdznxfozdpxetwisrd` (`intelligent-research-lab`, `eu-west-3`); source remains `yckewtpfttvwiptmmrfq`  
 **Data safety:** source is read-only; no source deletion or source schema change is part of this runbook.
 
 ## Hard gates
 
-- [ ] Identify a real IRL backend project ref from its owner/project settings, not a stale `.env` value.
+- [x] Identify the IRL backend project ref from the official Supabase project-management API: `ragdznxfozdpxetwisrd` (`intelligent-research-lab`, `eu-west-3`), verified 2026-10-22.
 - [ ] Confirm the target is separate from `yckewtpfttvwiptmmrfq` and has sufficient free database/storage capacity.
 - [ ] Confirm a private, encrypted local artifact destination with access controls.
 - [ ] Freeze a consistent source snapshot boundary for the export.
@@ -16,7 +16,7 @@
 - [ ] Build an idempotent target import and verify counts/hashes after import.
 - [ ] Preserve all source rows; never delete source data as part of migration.
 
-Until the first three gates pass, do not export row payloads into GitHub, do not write to any Supabase project, and do not create paid infrastructure.
+Project identity is now verified, but do not export row payloads into GitHub or write/import data until private artifact storage, a consistent source snapshot, target schema/privileges, exact ID/hash reconciliation, and an approved recovery plan are verified. Do not create paid infrastructure.
 
 ## Latest source snapshot for planning
 
@@ -148,3 +148,12 @@ The following exact-count queries were run against the canonical source on 2026-
 Timestamp ranges in the core tables are recent in the current source snapshot: `composite_signals` spans 2026-10-14 12:40 UTC to 2026-10-20 11:30 UTC; `strategy_variant_signals` spans 2026-10-14 15:30 UTC to 2026-10-20 11:30 UTC; `strategy_shadow_diagnostics` spans 2026-10-11 19:50 UTC to 2026-10-20 11:30 UTC. This may reflect retention, a reset, or current table scope; the query alone does not establish why. Before claiming all historical knowledge is preserved, inspect source migration/retention history and determine whether older cohorts exist in another table, backup, branch or export. Do not infer that older rows never existed.
 
 Final export manifest must be recomputed in one consistent snapshot, using exact counts and canonical rowset hashes; these preflight figures are not substitutes for that step.
+
+
+## Destination and live source recheck — 2026-10-22
+
+- Target identity was verified via the official Supabase project-management API: `ragdznxfozdpxetwisrd`, project name `intelligent-research-lab`, region `eu-west-3`, status `ACTIVE_HEALTHY`. Production source `yckewtpfttvwiptmmrfq` is a separate active project.
+- Target currently has one public table, `research_archive_documents`, 194 rows, ~4.52 MiB table size, and ~15 MiB total database size. The table's schema was not represented in the repository's migration history; a migration has been added to the current review branch to make it reproducible and revoke table privileges from `anon` and `authenticated`. It has not been applied.
+- Existing JSON archive batches contain 7,276 distinct cases, 7,311 distinct evidence records, and 3,073 Early Entry decisions. Current source counts are 8,548, 8,584, and 3,472; exact missing IDs must be computed before transfer completion can be claimed.
+- Source database size was 724,896,915 bytes (~691 MiB) at 2026-10-22 20:05:57 UTC, up from 526,126,227 bytes (~502 MiB) in the 2026-10-20 snapshot. This indicates material growth between two snapshots, not a guaranteed growth forecast.
+- Retention control is fail-closed: `allow_archive=false`, `allow_source_delete=false`. The active daily job runs at 03:17 UTC, but while archive capture is disabled it exits before writes/deletes. Keep both controls disabled.
