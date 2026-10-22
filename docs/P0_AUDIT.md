@@ -266,3 +266,28 @@ The following is a read-only point-in-time view of the canonical source. Keep ra
 - `research_evidence`: 8,584 rows, all currently tagged `entry_context`; none has a null `available_at` or `available_at < observed_at`. This is a structural check only: the live refresh function uses source `created_at` for both times in several paths, so the timestamps are not independently proven to represent true feature availability.
 
 These figures are useful for Observatory ingestion planning but are not a substitute for deduplication by the correct symbol-cycle identity, V3 cohort parity, chronological out-of-sample evaluation, or an exact source-to-archive ID/hash reconciliation.
+
+
+## Exact source/archive reconciliation — SHA-256, 2026-10-22
+
+A fresh read-only pass compared the full source ID sets with IDs extracted from all archived JSON batches. Hashes use PostgreSQL `pgcrypto.digest(..., 'sha256')`; archive batches were checked for duplicate IDs and unexpected IDs.
+
+| Dataset | Current source rows | Archived distinct IDs | Missing source IDs | Unexpected archive IDs | Full-row SHA-256 mismatches among overlapping IDs |
+|---|---:|---:|---:|---:|---:|
+| `research_cases` | 8,585 | 7,276 | 1,309 | 0 | 2,859 |
+| `research_evidence` | 8,621 | 7,311 | 1,310 | 0 | 0 |
+| `early_entry_variant_decisions` | 3,487 | 3,073 | 414 | 0 | 0 |
+
+No duplicate IDs were found within the archived batches for these datasets. The live counts differ from earlier snapshots because source data continues to change; use the count/hash snapshot from this pass as the current reconciliation baseline.
+
+### What the row hashes prove
+
+- `research_evidence`: all 7,311 overlapping rows match the full-row SHA-256.
+- `early_entry_variant_decisions`: all 3,073 overlapping rows match the full-row SHA-256.
+- `research_cases`: all 7,276 archived IDs exist in the source, but 2,859 full-row hashes differ. A field-by-field comparison found that every difference is confined to mutable outcome/lifecycle fields: `net_pnl`, `outcome`, `updated_at`, `maturity_at`, `resolved_at`, and `close_reason`. The immutable identity/strategy/context projection matched for all 7,276 overlapping cases. This is stale outcome state in the archive, not evidence of mismatched source identity.
+
+Therefore the archive is not ready to serve as the Observatory's canonical outcomes store. The next bounded idempotent refresh should upsert the 1,309 missing cases, 1,310 missing evidence records and 414 missing Early Entry decisions, then refresh the 2,859 stale case outcome rows. Re-run the same SHA-256 reconciliation afterward and require zero missing IDs, zero extra IDs, zero duplicates, and zero hash mismatches before marking these datasets complete. Do not enable source deletion.
+
+### Historical sentiment-cleanup SQL recovery
+
+The two migration records exist in the production migration history, but their SQL files were not found in the current `main` tree, eight examined relevant branches, GitHub file/commit searches, or the existing archive's repository-file path index. Their exact DELETE predicates cannot be safely reconstructed from migration names alone. Keep this as an unresolved forensic item; do not recreate guessed SQL or claim exact historical deletion scope without a trusted commit, backup, or audit log.
