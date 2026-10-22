@@ -156,3 +156,67 @@ The archive now contains 436 documents and occupies about 17 MB. The three recon
 This is not a full production transfer and does not prove the full repository code backup succeeded. PR [#140](https://github.com/gepappas98/pixel-perfect-pixels/pull/140) is merged at `4ae407ec2528456dc7baf210394643002a7cea1d`, but the archive still contains no `code-backup-latest` pointer or `code-snapshot-manifest-*` document. The full-repository backup is therefore **not yet verified**. The available GitHub connection cannot list GitHub Actions secret names or dispatch/inspect the push-triggered workflow run; confirm the two secrets in the `research-lab-archive` environment and run [the backup workflow](https://github.com/gepappas98/pixel-perfect-pixels/actions/workflows/research-lab-code-backup.yml). Accept success only when the run summary explicitly reports `all_tracked_files_included: true`.
 
 The archive table privilege-hardening migration remains in open PR #8 and has not been applied. Keep `allow_archive=false` and `allow_source_delete=false`; no source cleanup is authorized by this reconciliation.
+
+
+## Batch research inventory — live snapshot 2026-10-22 21:25 UTC
+
+Read-only counts from the canonical production Supabase. These are current observations, not immutable baselines; new rows appeared after the append-only archive verification at approximately 21:02 UTC.
+
+### Current core datasets
+
+| Dataset | Current rows | First/latest observed timestamp where available | Archive state |
+|---|---:|---|---|
+| `research_cases` | 8,609 | Derived outcome cases | Last verified archive: 8,592; current delta +17 |
+| `research_evidence` | 8,645 | Evidence rows | Last verified archive: 8,628; current delta +17 |
+| `early_entry_variant_decisions` | 3,496 | Decision rows | Last verified archive: 3,490; current delta +6 |
+| `strategy_variant_signals` | 71,739 | 2026-10-14 through 2026-10-22 21:20 UTC | Not included in the three-table reconciliation |
+| `strategy_shadow_diagnostics` | 161,413 | High-volume diagnostic history | Not yet reconciled/transferred |
+| `council_signals` | 6,233 | Council source/sync timestamps | Not yet reconciled/transferred |
+| `council_lessons` | 313 | 2026-10-12 through 2026-10-21 21:10 UTC | Not yet reconciled/transferred |
+| `cmc_listing_snapshots` | 28,200 | 2026-10-15 through 2026-10-22 20:20 UTC; 1,037 symbols | Not yet reconciled/transferred |
+| `cmc_macro_snapshots` | 334 | 2026-10-15 through 2026-10-22 21:20 UTC | Not yet reconciled/transferred |
+| `event_flow_transmissions` | 72 | 2026-10-12 through 2026-10-22 20:30 UTC; 12 assets | Not yet reconciled/transferred |
+| `event_flow_paper_decisions` | 42 | 2026-10-14 through 2026-10-22 21:25 UTC | Not yet reconciled/transferred |
+| `trades` | 365 | Paper-trade outcomes and open positions | Not yet reconciled/transferred |
+
+### Trade outcome snapshot
+
+| Entry source | Total | Closed | Open | Closed `net_pnl` sum |
+|---|---:|---:|---:|---:|
+| CMC Paper | 222 | 217 | 5 | -$137.82 |
+| Early Entry Regime | 26 | 24 | 2 | +$225.16 |
+| Event Flow Paper | 44 | 39 | 5 | -$162.51 |
+| Standard | 73 | 72 | 1 | -$122.33 |
+| **Total** | **365** | **352** | **13** | **-$197.50** |
+
+These sums are from the current `trades.net_pnl` field filtered to closed trades. Preserve gross PnL, fees, net PnL, close reason, entry metadata, and the open/closed status as separate facts in the Observatory; never infer realized PnL from open positions.
+
+### Strategy variant population
+
+- V2: 65,735 raw rows; all resolved; mean stored `pnl_pct` -0.7018%.
+- V3: 6,004 raw rows; 4,880 resolved and 1,124 unresolved; mean stored `pnl_pct` +0.5748% among resolved rows.
+- These are raw variant rows and are **not** unique symbol-cycle samples. Do not compare V2 to V3 as if they were deduplicated independent observations. V2 is historical/reference only; V3 must be deduplicated and aligned to the live MTF scoring contract before inference.
+
+### Council learning quality
+
+- `council_lessons`: 313 lessons across 66 symbols.
+- All 313 have a `source_trade_id` and non-null `realized_pnl`; no lesson is shorter than 20 characters.
+- Lesson counts are concentrated in GTC (45), OSMO (31), and AMP (31), which is a coverage/skew signal, not evidence that those symbols have the most predictive lessons.
+- Observatory should retain up to five **distinct, evidence-linked** lessons per symbol, with source trade, entry context, verdict/conviction, realized outcome and created timestamp. Keep rejected, contradicted and superseded lessons in the audit trail; do not let duplicate wording consume the five slots.
+
+### Event→Flow and CMC data quality
+
+- `cmc_listing_snapshots`: 28,200 rows / 1,037 symbols, no missing `price_usd` in this snapshot. `cmc_macro_snapshots`: 334 rows. CMC remains discovery/context and a label source, never a standalone BUY voter.
+- `event_flow_transmissions`: 72 rows / 12 assets; 27 rows have `data_quality` outside the accepted labels `ok`, `good`, or `complete`. Review actual label values before treating that count as unusable records.
+- `event_flow_paper_decisions`: 42 rows, 14 missing `sentiment_score`. Preserve them as incomplete decisions rather than dropping them; investigate source freshness and gate eligibility.
+
+### Immediate incremental work
+
+1. Reconcile the +17 cases, +17 evidence rows and +6 Early Entry decisions that appeared after the last verified archive snapshot. Re-run latest-state SHA-256 checks after append-only sync; keep source deletion disabled.
+2. Inspect the full repository backup workflow status. The archive still has no `code-backup-latest` pointer or `code-snapshot-manifest-*` document, so the full code backup is **not verified**. The connector cannot inspect GitHub environment secrets or dispatch a workflow; a maintainer must confirm the two archive-only secrets and run the workflow from GitHub Actions.
+3. Expand the transfer manifest to the unverified tables above, starting with `trades`, `council_lessons`, `council_signals`, V3 variant signals, Early Entry regime observations, CMC macro/listing snapshots, and Event→Flow decisions/transmissions. Record exact source table, source ID, content hash, source timestamps and transfer snapshot time.
+4. Profile `strategy_shadow_diagnostics` (161,413 rows / ~133 MiB) before copying every raw row. Preserve raw data in a bounded archive if needed, but derive compact, versioned rollups for the Observatory instead of duplicating large JSON payloads into dashboard queries.
+
+### Review state
+
+PR [#8](https://github.com/gepappas98/intelligent-research-lab/pull/8) remains open and has no submitted reviews. The migration is not applied. Its least-privilege intent is to revoke all table privileges from `public`, `anon`, `authenticated`, and `service_role`, then grant only `SELECT`, `INSERT`, and `UPDATE` to `service_role` for the idempotent uploader; it deliberately grants no `DELETE` or `TRUNCATE`. Review/approval is still required before merging or applying it to the verified IRL project.
