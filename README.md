@@ -16,7 +16,7 @@ An independent, research-only platform for evaluating crypto signals, strategies
 ## Project status
 
 **Phase:** P0 forensic audit, knowledge consolidation and transfer preparation.  
-**Production row transfer has not run:** the isolated IRL destination is now independently verified as Supabase project `ragdznxfozdpxetwisrd` (`intelligent-research-lab`, `eu-west-3`, `ACTIVE_HEALTHY`), separate from production `yckewtpfttvwiptmmrfq`. The existing archive contains only partial historical snapshots; no source rows have been deleted.
+**Full production transfer remains incomplete:** the isolated IRL destination is independently verified as Supabase project `ragdznxfozdpxetwisrd` (`intelligent-research-lab`, `eu-west-3`, `ACTIVE_HEALTHY`), separate from production `yckewtpfttvwiptmmrfq`. An append-only reconciliation of `research_cases`, `research_evidence`, and `early_entry_variant_decisions` now passes latest-state SHA-256 verification as of 2026-10-22. The broader data transfer and full-repository code backup remain unverified; no source rows have been changed or deleted.
 
 Read [the preliminary P0 Infrastructure & Data Audit](docs/P0_AUDIT.md) for observed facts, unresolved questions and next steps.
 
