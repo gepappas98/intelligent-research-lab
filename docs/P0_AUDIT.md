@@ -205,3 +205,32 @@ The same snapshot estimated `trades` 230, `composite_signals` 16,139, `strategy_
 2. The knowledge transfer should prioritize strategy outcomes, shadow diagnostics, Early Entry decisions, whale transitions/follow-ups, price/flow/sentiment context and their source IDs, while preserving full source history.
 3. High-volume raw snapshot data should be transferred as bounded, versioned observations with provenance; large JSON blobs should not be copied indiscriminately.
 4. A destination database is still unverified. Therefore no production data has been exported/imported into IRL yet and no target migration is applied.
+
+
+## Live recheck — 2026-10-22 (read-only; supersedes destination identity blocker only)
+
+### Destination identity
+
+The official Supabase project-management API now independently verifies the IRL target as `ragdznxfozdpxetwisrd` (`intelligent-research-lab`, `eu-west-3`, `ACTIVE_HEALTHY`). Production remains `yckewtpfttvwiptmmrfq` (`trading-command-center`, `eu-west-2`). The unrelated `opwkbdbpqgtgcrmqqmbq` project is `polymarket-quant-bot-lite` and inactive. This resolves the **project identity** gate; it does not authorize data transfer.
+
+### Current archive completeness and access posture
+
+- Target database: ~15 MiB total; `public.research_archive_documents` is ~4.52 MiB with 194 documents.
+- Target has RLS enabled but no policies. This currently denies row access through ordinary API roles, but `anon` and `authenticated` still hold table-level privileges. The new migration on branch `ops/verified-irl-destination-and-archive-lockdown-2026-10-22` records the existing schema and revokes those privileges. It is not applied to the target.
+- The archive currently contains distinct source IDs for 7,276 cases, 7,311 evidence records, and 3,073 Early Entry decisions. The current source counts are 8,548, 8,584, and 3,472. This establishes net row-count gaps of at least 1,272, 1,273, and 399, but the exact missing source IDs and payload hashes remain unverified.
+- Existing repository code archive is partial: the previous archive index covers 400 tracked paths, but only 32 critical files were copied as 70 chunks. The full-repository backup workflow is still open in PR [#140](https://github.com/gepappas98/pixel-perfect-pixels/pull/140); its latest branch commit adds an explicit archive-project URL allowlist. No successful full backup has been confirmed.
+
+### Current production retention/storage status
+
+At 2026-10-22 20:05:57 UTC, the canonical production database measured 724,896,915 bytes (~691 MiB), versus 526,126,227 bytes (~502 MiB) in the 2026-10-20 snapshot. This is approximately 199 MB growth across two observations about 56.5 hours apart; do not extrapolate it as a guaranteed growth rate.
+
+The largest current relations are `strategy_shadow_diagnostics` (~132 MB), `composite_signals` (~112 MB including ~87 MB TOAST), `strategy_variant_signals` (~47 MB), `whale_alerts` (~46 MB), `market_candles` (~45 MB), and `pipeline_runs` (~38 MB, almost entirely TOAST).
+
+Live `research_archive_control` flags are `allow_archive=false` and `allow_source_delete=false`. The daily 03:17 UTC retention job is active and reports successful execution, but the current function exits before archive writes or deletes while archive capture is disabled. The job's success is not proof of a completed archive. Both flags must remain disabled until transfer completeness and evidence retention are reviewed.
+
+### Next safe gates
+
+1. Review/merge the IRL migration PR, then apply it only to the verified IRL target after approval; do not touch production schema.
+2. Reconcile exact IDs and deterministic logical row hashes for all archived batches; refresh only missing/new rows in bounded idempotent batches.
+3. Finish source retention/cleanup history review and confirm no historical periods are assumed complete without evidence.
+4. Verify a complete repository backup workflow run before treating the code archive as a recovery point.
