@@ -294,3 +294,17 @@ These sums are from the current `trades.net_pnl` field filtered to closed trades
 ### Review state
 
 PR [#8](https://github.com/gepappas98/intelligent-research-lab/pull/8) remains open and has no submitted reviews. The migration is not applied. Its least-privilege intent is to revoke all table privileges from `public`, `anon`, `authenticated`, and `service_role`, then grant only `SELECT`, `INSERT`, and `UPDATE` to `service_role` for the idempotent uploader; it deliberately grants no `DELETE` or `TRUNCATE`. Review/approval is still required before merging or applying it to the verified IRL project.
+
+
+### Realized trade performance metrics — current snapshot
+
+Metrics below are computed from closed rows in `trades`, grouped by `entry_source`. Win rate is positive `net_pnl` divided by closed rows with non-null `net_pnl`. Average win/loss uses the actual signed net PnL. Drawdown is the minimum cumulative PnL minus running peak, ordered by `closed_at,id`, with a zero starting baseline; it is **not** a percent drawdown of equity.
+
+| Entry source | Closed | Wins | Losses | Win rate | Net PnL | Average win | Average loss | Max drawdown (USD PnL curve) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| CMC Paper | 217 | 87 | 130 | 40.09% | -$137.82 | +$41.08 | -$28.55 | -$851.32 |
+| Early Entry Regime | 24 | 9 | 15 | 37.50% | +$225.16 | +$55.46 | -$18.26 | -$143.69 |
+| Event Flow Paper | 39 | 16 | 23 | 41.03% | -$162.51 | +$30.51 | -$28.29 | -$382.39 |
+| Standard | 72 | 29 | 43 | 40.28% | -$122.33 | +$29.52 | -$22.75 | -$670.74 |
+
+These are descriptive results from the present paper-trade ledger, not an out-of-sample strategy verdict. Before ranking strategies, reconcile position sizing, exposure overlap, trade chronology, fees and the source's status semantics. The UI attribution code maps each actual paper trade by `entry_source` / `entry_metadata.strategy`; shadow decisions must remain excluded from trade count and PnL. Future Observatory views should calculate time-normalized and equity-normalized drawdown in addition to this raw PnL curve.
