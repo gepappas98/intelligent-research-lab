@@ -83,3 +83,23 @@ The current Lovable workspace `george's Lovable` (workspace ID `vx55H9Kw5Tn3M8np
 This independently supports the current blocker: there is no identifiable IRL Lovable project in the accessible workspace, and the connected Supabase project listings likewise expose no approved IRL destination. The old `gbbrmzstuhdizfvabjvz` reference still cannot be inspected by the current Supabase account connections. Do not enable or migrate any database for the existing Pixel Perfect Pixels project as a substitute for IRL.
 
 A separate disposable restore-test branch was priced by Supabase at **US$0.01344/hour**. No branch was created; explicit user cost approval is required before creation. A local PostgreSQL server was not available in the execution environment, and an installation attempt timed out without provisioning it.
+
+
+## Destination identity recheck — 2026-10-22 (read-only)
+
+The earlier “destination not verified” statements above describe the 2026-10-10 audit state and are superseded for project identity by this recheck.
+
+- Official Supabase project-management API returns project ref **`ragdznxfozdpxetwisrd`**, name **`intelligent-research-lab`**, region **`eu-west-3`**, database host `db.ragdznxfozdpxetwisrd.supabase.co`, status `ACTIVE_HEALTHY`, created 2026-10-21 09:50:16 UTC.
+- Canonical source remains **`yckewtpfttvwiptmmrfq`**, name `trading-command-center`, region `eu-west-2`, status `ACTIVE_HEALTHY`. The candidate target is a different project ref.
+- `opwkbdbpqgtgcrmqqmbq` is still the unrelated `polymarket-quant-bot-lite` project and is `INACTIVE`.
+- Read-only target inventory: one public table, `research_archive_documents`; 194 rows; table size about 4.52 MiB; whole database about 15 MiB. Supabase migration history currently lists only `20261021113716_create_private_research_archive_bucket`; the document-table schema was not represented in the repository migration history at the time of this check.
+- The archive table has RLS enabled and no policies, which currently fails closed for API roles, but table-level privileges are still granted to `anon` and `authenticated`. A reviewed, idempotent migration has been added on branch `ops/verified-irl-destination-and-archive-lockdown-2026-10-22` to track the schema and revoke those grants; it has **not** been applied to the database.
+- Destination identity is verified; that does **not** mean transfer readiness or completeness is verified. The existing archive batches contain 7,276 distinct `research_cases`, 7,311 distinct `research_evidence`, and 3,073 `early_entry_variant_decisions`. Current source counts are 8,548, 8,584, and 3,472 respectively. These are net row-count gaps of at least 1,272, 1,273, and 399 records; exact missing IDs still require reconciliation. The archive batches are JSON documents, not a normalized full-table import.
+
+## Production retention and storage recheck — 2026-10-22 (read-only)
+
+- Source database size at 2026-10-22 20:05:57 UTC: **724,896,915 bytes (~691 MiB)**. The 2026-10-20 runbook snapshot was 526,126,227 bytes (~502 MiB). The two observations differ by about 199 MB over roughly 56.5 hours; this is a two-point comparison, not a forecast.
+- Largest current relations by total size: `strategy_shadow_diagnostics` ~132 MB; `composite_signals` ~112 MB (including ~87 MB TOAST); `strategy_variant_signals` ~47 MB; `whale_alerts` ~46 MB; `market_candles` ~45 MB; `pipeline_runs` ~38 MB (including ~38 MB TOAST); `accumulation_shadow_observations` ~37 MB.
+- `research_archive_control` currently has `allow_archive=false` and `allow_source_delete=false`. The scheduled `research-data-retention` job is active at 03:17 UTC daily and has succeeded, but the live function definition returns before archive writes or deletes when `allow_archive=false`. Success status therefore means the job ran, not that archival or cleanup occurred.
+- Current rows older than the configured 72-hour raw cutoff: price 31,980/57,866; flow 31,980/57,870; sentiment 26,030/44,551; news 908/1,785. Older than the 168-hour derived cutoff: event-flow transmissions 28/71; whale-flow shock follow-ups 1,740/5,965; transition context 1,751/6,002; transitions 1,751/6,002; whale-flow snapshots 4,620/14,131.
+- No production rows were changed during this check. Keep both controls disabled until the archive is complete, the retention-source mapping is validated, and the evidence-value/storage decision is explicitly reviewed.
