@@ -166,3 +166,23 @@ Final export manifest must be recomputed in one consistent snapshot, using exact
 - Current minimum timestamps align with the last pre-gate cleanup boundary for several tables: price, flow and sentiment snapshots begin at 2026-10-16 03:20 UTC (about three minutes after the 2026-10-19 03:17 UTC run's 72-hour cutoff); whale-flow shock follow-ups begin at 2026-10-12 03:18 UTC (about one minute after its 168-hour cutoff). This is strong evidence consistent with retention deletion, but without a pre-cleanup snapshot it cannot quantify every deleted row.
 - The current `allow_archive=false` and `allow_source_delete=false` gates prevent future archive writes/deletes through the current function. They do not restore any rows removed by earlier cleanup runs.
 - The live migration history also lists applied sentiment-cleanup migrations `20261008100734` (`20261008123000_clean_invalid_sentiment_research_data`) and `20261008101017` (`20261008123001_remove_zero_sentiment_rows`), but corresponding SQL files were not found in the current `main` tree's `supabase/migrations` directory. Exact historical predicates and deleted-row counts therefore remain unverified; recover the migration SQL from Git history/other branches or trusted backup artifacts before asserting historical completeness.
+
+
+## Current strategy/outcome snapshot — 2026-10-22 (raw counts; not a performance conclusion)
+
+The following is a read-only point-in-time view of the canonical source. Keep raw variant rows, research-case rows, and actual paper trades as separate populations.
+
+### Actual paper trades
+
+- `trades`: 365 rows total; 352 closed and 13 open.
+- Closed by `entry_source` using the source `net_pnl` field: `cmc_paper` 217 closed / -$137.82 (5 open); `standard` 72 / -$122.33 (1 open); `event_flow_paper` 39 / -$162.51 (5 open); `early_entry_regime` 24 / +$225.16 (2 open).
+- The sum of these closed-trade `net_pnl` values is -$197.50. Do not mix open trades into realized PnL; confirm fees/exit semantics before using this as a dashboard headline.
+
+### Raw strategy variant rows and derived research cases
+
+- `strategy_variant_signals`, cohort inferred from `source_fingerprint`: V2 65,735 rows, all currently resolved; V3 5,945 rows, 4,699 resolved and 1,246 unresolved. These are raw variant rows, not unique symbol-cycle observations.
+- `research_cases`: 8,548 rows. V2 has 2,250 resolved cases (419 win, 1,422 loss, 409 expired). V3 has 5,933 cases (2,447 win, 2,206 loss, 14 expired, 1,266 open). The Unknown cohort contains 365 trade-derived cases (352 closed, 13 open).
+- There is an unresolved parity difference between the V3 source and derived-case counts: `strategy_variant_signals` has 4,699 resolved / 1,246 unresolved, while `research_cases` has 4,667 resolved / 1,266 open and 5,933 total cases. The totals differ by 12 and the resolved counts by 32. Do not treat the derived cases as a complete mirror until the refresh function's inclusion, maturity and upsert rules are reconciled.
+- `research_evidence`: 8,584 rows, all currently tagged `entry_context`; none has a null `available_at` or `available_at < observed_at`. This is a structural check only: the live refresh function uses source `created_at` for both times in several paths, so the timestamps are not independently proven to represent true feature availability.
+
+These figures are useful for Observatory ingestion planning but are not a substitute for deduplication by the correct symbol-cycle identity, V3 cohort parity, chronological out-of-sample evaluation, or an exact source-to-archive ID/hash reconciliation.
