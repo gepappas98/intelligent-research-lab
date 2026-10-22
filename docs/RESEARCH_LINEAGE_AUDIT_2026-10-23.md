@@ -38,7 +38,7 @@ The lesson records are tightly clustered in time (2026-10-12 through 2026-10-14)
 ## 4. Strict point-in-time validity — material blocker
 
 Current source counts:
-- `research_cases`: 8,648 at the latest query; V3 6,033 (4,923 resolved, 1,110 unresolved), V2 2,250 (all resolved), Unknown 365 (352 resolved, 13 unresolved). Counts vary slightly across snapshots while writers are active; retain query timestamp with every comparison.
+- `research_cases`: 8,648 at the latest cohort query; V3 6,033 (4,923 resolved, 1,110 unresolved), V2 2,250 (all resolved), Unknown 365 (352 resolved, 13 unresolved). `strategy_variant_signals` currently has 6,033 V3-fingerprinted rows with 6,033 distinct fingerprints, zero missing fingerprints, zero resolved rows missing outcome, zero unresolved rows carrying a terminal outcome, and zero rows resolved before creation. V3 source and research-case resolved counts currently align at 4,923; counts vary slightly across live snapshots, so retain query time with comparisons.
 - All 8,648 cases have `entry_at`, and none have an empty evidence reference list in the latest check.
 - Flattened research-evidence references were previously reconciled: 8,674 refs, zero unresolved evidence IDs.
 - `research_evidence`: 8,674 records. 8,283 source `strategy_variant_signals`, 365 `trades`, 36 `composite_signals`. Every row has `observed_at = available_at`; every row has `captured_at > available_at`. No fingerprints are missing.
