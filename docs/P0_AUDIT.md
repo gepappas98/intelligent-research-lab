@@ -246,3 +246,23 @@ Live `research_archive_control` flags are `allow_archive=false` and `allow_sourc
 
 
 The next audit should recover the two missing sentiment-cleanup migration files and determine the historical deleted-row scope. Do not infer that all pre-2026-10-16 context is absent solely from current minimum timestamps, and do not claim full historical coverage until older snapshots/backups and event-vs-ingestion timestamps are reconciled.
+
+
+## Current strategy/outcome snapshot — 2026-10-22 (raw counts; not a performance conclusion)
+
+The following is a read-only point-in-time view of the canonical source. Keep raw variant rows, research-case rows, and actual paper trades as separate populations.
+
+### Actual paper trades
+
+- `trades`: 365 rows total; 352 closed and 13 open.
+- Closed by `entry_source` using the source `net_pnl` field: `cmc_paper` 217 closed / -$137.82 (5 open); `standard` 72 / -$122.33 (1 open); `event_flow_paper` 39 / -$162.51 (5 open); `early_entry_regime` 24 / +$225.16 (2 open).
+- The sum of these closed-trade `net_pnl` values is -$197.50. Do not mix open trades into realized PnL; confirm fees/exit semantics before using this as a dashboard headline.
+
+### Raw strategy variant rows and derived research cases
+
+- `strategy_variant_signals`, cohort inferred from `source_fingerprint`: V2 65,735 rows, all currently resolved; V3 5,945 rows, 4,699 resolved and 1,246 unresolved. These are raw variant rows, not unique symbol-cycle observations.
+- `research_cases`: 8,548 rows. V2 has 2,250 resolved cases (419 win, 1,422 loss, 409 expired). V3 has 5,933 cases (2,447 win, 2,206 loss, 14 expired, 1,266 open). The Unknown cohort contains 365 trade-derived cases (352 closed, 13 open).
+- There is an unresolved parity difference between the V3 source and derived-case counts: `strategy_variant_signals` has 4,699 resolved / 1,246 unresolved, while `research_cases` has 4,667 resolved / 1,266 open and 5,933 total cases. The totals differ by 12 and the resolved counts by 32. Do not treat the derived cases as a complete mirror until the refresh function's inclusion, maturity and upsert rules are reconciled.
+- `research_evidence`: 8,584 rows, all currently tagged `entry_context`; none has a null `available_at` or `available_at < observed_at`. This is a structural check only: the live refresh function uses source `created_at` for both times in several paths, so the timestamps are not independently proven to represent true feature availability.
+
+These figures are useful for Observatory ingestion planning but are not a substitute for deduplication by the correct symbol-cycle identity, V3 cohort parity, chronological out-of-sample evaluation, or an exact source-to-archive ID/hash reconciliation.
