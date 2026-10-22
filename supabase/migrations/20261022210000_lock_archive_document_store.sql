@@ -17,8 +17,10 @@ alter table public.research_archive_documents enable row level security;
 
 -- Archive payloads must never be accessible through anon/authenticated API roles.
 -- The scheduled uploader uses only the dedicated archive project's service-role key.
-revoke all privileges on table public.research_archive_documents from public, anon, authenticated;
-grant all privileges on table public.research_archive_documents to service_role;
+revoke all privileges on table public.research_archive_documents from public, anon, authenticated, service_role;
+-- The uploader needs read access for verification and insert/update for idempotent upserts.
+-- It does not need DELETE, TRUNCATE, or other mutation privileges.
+grant select, insert, update on table public.research_archive_documents to service_role;
 
 comment on table public.research_archive_documents is
   'Private, provenance-bearing archive documents and immutable source snapshots; service-role access only.';
