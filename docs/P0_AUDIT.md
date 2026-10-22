@@ -134,9 +134,9 @@ Read-only GitHub inspection of the current source `main` found:
 
 The deployed refresh function uses source `created_at` as both `observed_at` and `available_at` for trades, composite signals and variant signals. Current source inspection does not establish that this is the actual event time or earliest strategy-availability time. The function also does not independently compute the 72-hour maturity boundary from entry time. Treat these generated archive timestamps/maturity labels as unverified; do not import them as authoritative IRL point-in-time facts.
 
-### Current decision
+### Decision as of 2026-10-20
 
-Continue documentation and read-only source tracing only. No production export has yet been created or verified; no IRL writable database has been positively identified; no data has been copied; no source rows, archive tables, functions, policies, cron jobs, trading logic or deployments have been changed by this audit. The next safe phase remains destination identity verification and a secure, checksum-verified export plan before any rollback is considered.
+At the time of this 2026-10-20 snapshot, no production export had been created or verified and the IRL destination identity was not yet confirmed. No source rows, archive tables, functions, policies, cron jobs, trading logic or deployments were changed by that audit. The 2026-10-22 live recheck below supersedes the destination-identity statement; transfer remains blocked pending schema/access review, a secure checksum-verified export plan and exact source-ID reconciliation.
 
 
 ## 9. Fresh live snapshot — 2026-10-20 05:31 UTC
@@ -204,7 +204,7 @@ The same snapshot estimated `trades` 230, `composite_signals` 16,139, `strategy_
 1. The immediate space problem is not solved by moving only the archive tables; they are too small.
 2. The knowledge transfer should prioritize strategy outcomes, shadow diagnostics, Early Entry decisions, whale transitions/follow-ups, price/flow/sentiment context and their source IDs, while preserving full source history.
 3. High-volume raw snapshot data should be transferred as bounded, versioned observations with provenance; large JSON blobs should not be copied indiscriminately.
-4. A destination database is still unverified. Therefore no production data has been exported/imported into IRL yet and no target migration is applied.
+4. At this 2026-10-20 snapshot, the destination was still unverified. The 2026-10-22 recheck below now verifies project identity, but no production data has been exported/imported into IRL and no target migration has been applied.
 
 
 ## Live recheck — 2026-10-22 (read-only; supersedes destination identity blocker only)
