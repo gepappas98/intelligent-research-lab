@@ -16,7 +16,7 @@ An independent, research-only platform for evaluating crypto signals, strategies
 ## Project status
 
 **Phase:** P0 forensic audit, knowledge consolidation and transfer preparation.  
-**Production row transfer has not run:** the isolated IRL database destination is not yet verified. No source rows have been deleted.
+**Full production transfer remains incomplete:** the isolated IRL destination is independently verified as Supabase project `ragdznxfozdpxetwisrd` (`intelligent-research-lab`, `eu-west-3`, `ACTIVE_HEALTHY`), separate from production `yckewtpfttvwiptmmrfq`. An append-only reconciliation of `research_cases`, `research_evidence`, and `early_entry_variant_decisions` now passes latest-state SHA-256 verification as of 2026-10-22. The broader data transfer and full-repository code backup remain unverified; no source rows have been changed or deleted.
 
 Read [the preliminary P0 Infrastructure & Data Audit](docs/P0_AUDIT.md) for observed facts, unresolved questions and next steps.
 
@@ -47,6 +47,6 @@ The following documents are being reviewed on branch `research/knowledge-transfe
 - [Wrong-repository incident containment and rollback gates](docs/WRONG_REPO_CONTAINMENT_AND_ROLLBACK.md)
 - [Wrong-repository dependency inventory, callers, SQL routines and cron jobs](docs/WRONG_REPO_DEPENDENCY_INVENTORY.md)
 
-IRL's own isolated writable database is still unconfirmed. Until it is positively identified, remain read-only against source systems and do not apply migrations or copy production records.
+The IRL destination identity is now confirmed by the official Supabase project-management API. Transfer is still blocked pending review of the target schema/privileges, private export destination, consistent source snapshot, and exact ID/hash reconciliation. Do not run a production export/import or source cleanup as part of this documentation change.
 
 Current database identity blockers and the latest destination recheck are documented in [the Supabase project map](docs/SUPABASE_PROJECT_MAP.md).

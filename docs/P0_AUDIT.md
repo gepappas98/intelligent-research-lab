@@ -134,9 +134,9 @@ Read-only GitHub inspection of the current source `main` found:
 
 The deployed refresh function uses source `created_at` as both `observed_at` and `available_at` for trades, composite signals and variant signals. Current source inspection does not establish that this is the actual event time or earliest strategy-availability time. The function also does not independently compute the 72-hour maturity boundary from entry time. Treat these generated archive timestamps/maturity labels as unverified; do not import them as authoritative IRL point-in-time facts.
 
-### Current decision
+### Decision as of 2026-10-20
 
-Continue documentation and read-only source tracing only. No production export has yet been created or verified; no IRL writable database has been positively identified; no data has been copied; no source rows, archive tables, functions, policies, cron jobs, trading logic or deployments have been changed by this audit. The next safe phase remains destination identity verification and a secure, checksum-verified export plan before any rollback is considered.
+At the time of this 2026-10-20 snapshot, no production export had been created or verified and the IRL destination identity was not yet confirmed. No source rows, archive tables, functions, policies, cron jobs, trading logic or deployments were changed by that audit. The 2026-10-22 live recheck below supersedes the destination-identity statement; transfer remains blocked pending schema/access review, a secure checksum-verified export plan and exact source-ID reconciliation.
 
 
 ## 9. Fresh live snapshot — 2026-10-20 05:31 UTC
@@ -204,4 +204,187 @@ The same snapshot estimated `trades` 230, `composite_signals` 16,139, `strategy_
 1. The immediate space problem is not solved by moving only the archive tables; they are too small.
 2. The knowledge transfer should prioritize strategy outcomes, shadow diagnostics, Early Entry decisions, whale transitions/follow-ups, price/flow/sentiment context and their source IDs, while preserving full source history.
 3. High-volume raw snapshot data should be transferred as bounded, versioned observations with provenance; large JSON blobs should not be copied indiscriminately.
-4. A destination database is still unverified. Therefore no production data has been exported/imported into IRL yet and no target migration is applied.
+4. At this 2026-10-20 snapshot, the destination was still unverified. The 2026-10-22 recheck below now verifies project identity, but no production data has been exported/imported into IRL and no target migration has been applied.
+
+
+## Live recheck — 2026-10-22 (read-only; supersedes destination identity blocker only)
+
+### Destination identity
+
+The official Supabase project-management API now independently verifies the IRL target as `ragdznxfozdpxetwisrd` (`intelligent-research-lab`, `eu-west-3`, `ACTIVE_HEALTHY`). Production remains `yckewtpfttvwiptmmrfq` (`trading-command-center`, `eu-west-2`). The unrelated `opwkbdbpqgtgcrmqqmbq` project is `polymarket-quant-bot-lite` and inactive. This resolves the **project identity** gate; it does not authorize data transfer.
+
+### Current archive completeness and access posture
+
+- Target database: ~15 MiB total; `public.research_archive_documents` is ~4.52 MiB with 194 documents.
+- Target has RLS enabled but no policies. This currently denies row access through ordinary API roles, but `anon` and `authenticated` still hold table-level privileges. The new migration on branch `ops/verified-irl-destination-and-archive-lockdown-2026-10-22` records the existing schema and revokes those privileges. It is not applied to the target.
+- The archive currently contains distinct source IDs for 7,276 cases, 7,311 evidence records, and 3,073 Early Entry decisions. The current source counts are 8,548, 8,584, and 3,472. This establishes net row-count gaps of at least 1,272, 1,273, and 399, but the exact missing source IDs and payload hashes remain unverified.
+- Existing repository code archive is partial: the previous archive index covers 400 tracked paths, but only 32 critical files were copied as 70 chunks. The full-repository backup workflow was merged from PR [#140](https://github.com/gepappas98/pixel-perfect-pixels/pull/140) at commit `4ae407ec2528456dc7baf210394643002a7cea1d`. The uploader has an explicit archive-project URL allowlist and the summary now includes `all_tracked_files_included`; no successful workflow run has yet been confirmed, so the code archive is not yet a verified recovery point.
+
+### Current production retention/storage status
+
+At 2026-10-22 20:05:57 UTC, the canonical production database measured 724,896,915 bytes (~691 MiB), versus 526,126,227 bytes (~502 MiB) in the 2026-10-20 snapshot. This is approximately 199 MB growth across two observations about 56.5 hours apart; do not extrapolate it as a guaranteed growth rate.
+
+The largest current relations are `strategy_shadow_diagnostics` (~132 MB), `composite_signals` (~112 MB including ~87 MB TOAST), `strategy_variant_signals` (~47 MB), `whale_alerts` (~46 MB), `market_candles` (~45 MB), and `pipeline_runs` (~38 MB, almost entirely TOAST).
+
+Live `research_archive_control` flags are `allow_archive=false` and `allow_source_delete=false`. The daily 03:17 UTC retention job is active and reports successful execution, but the current function exits before archive writes or deletes while archive capture is disabled. The job's success is not proof of a completed archive. Both flags must remain disabled until transfer completeness and evidence retention are reviewed.
+
+### Next safe gates
+
+1. Review/merge the IRL migration PR, then apply it only to the verified IRL target after approval; do not touch production schema.
+2. Reconcile exact IDs and deterministic logical row hashes for all archived batches; refresh only missing/new rows in bounded idempotent batches.
+3. Finish source retention/cleanup history review and confirm no historical periods are assumed complete without evidence.
+4. Verify a complete repository backup workflow run before treating the code archive as a recovery point.
+
+
+### Historical retention evidence — 2026-10-22 read-only review
+
+- Production migration history lists the destructive original cleanup implementation as applied, and the live cron history shows one successful `research-data-retention` run daily from 2026-10-09 through 2026-10-20. The guard/capture-gate migrations were recorded on 2026-10-19 around 22:25–22:34 UTC, after that day's 03:17 UTC run.
+- The original migration `20261008050000_research_data_retention_cleanup.sql` deletes raw rows older than 72 hours and derived rows older than 168 hours when called with `p_dry_run=false`. The scheduled command used exactly `cleanup_research_data(72, 168, false)`.
+- Current minimum timestamps align with the last pre-gate cleanup boundary for several tables: price, flow and sentiment snapshots begin at 2026-10-16 03:20 UTC (about three minutes after the 2026-10-19 03:17 UTC run's 72-hour cutoff); whale-flow shock follow-ups begin at 2026-10-12 03:18 UTC (about one minute after its 168-hour cutoff). This is strong evidence consistent with retention deletion, but without a pre-cleanup snapshot it cannot quantify every deleted row.
+- The current `allow_archive=false` and `allow_source_delete=false` gates prevent future archive writes/deletes through the current function. They do not restore any rows removed by earlier cleanup runs.
+- The live migration history also lists applied sentiment-cleanup migrations `20261008100734` (`20261008123000_clean_invalid_sentiment_research_data`) and `20261008101017` (`20261008123001_remove_zero_sentiment_rows`), but corresponding SQL files were not found in the current `main` tree or eight examined relevant branches' `supabase/migrations` directories. Exact historical predicates and deleted-row counts therefore remain unverified; recover the migration SQL from Git history/other branches or trusted backup artifacts before asserting historical completeness.
+
+
+The next audit should recover the two missing sentiment-cleanup migration files and determine the historical deleted-row scope. Do not infer that all pre-2026-10-16 context is absent solely from current minimum timestamps, and do not claim full historical coverage until older snapshots/backups and event-vs-ingestion timestamps are reconciled.
+
+
+## Current strategy/outcome snapshot — 2026-10-22 (raw counts; not a performance conclusion)
+
+The following is a read-only point-in-time view of the canonical source. Keep raw variant rows, research-case rows, and actual paper trades as separate populations.
+
+### Actual paper trades
+
+- `trades`: 365 rows total; 352 closed and 13 open.
+- Closed by `entry_source` using the source `net_pnl` field: `cmc_paper` 217 closed / -$137.82 (5 open); `standard` 72 / -$122.33 (1 open); `event_flow_paper` 39 / -$162.51 (5 open); `early_entry_regime` 24 / +$225.16 (2 open).
+- The sum of these closed-trade `net_pnl` values is -$197.50. Do not mix open trades into realized PnL; confirm fees/exit semantics before using this as a dashboard headline.
+
+### Raw strategy variant rows and derived research cases
+
+- `strategy_variant_signals`, cohort inferred from `source_fingerprint`: V2 65,735 rows, all currently resolved; V3 5,945 rows, 4,699 resolved and 1,246 unresolved. These are raw variant rows, not unique symbol-cycle observations.
+- `research_cases`: 8,548 rows. V2 has 2,250 resolved cases (419 win, 1,422 loss, 409 expired). V3 has 5,933 cases (2,447 win, 2,206 loss, 14 expired, 1,266 open). The Unknown cohort contains 365 trade-derived cases (352 closed, 13 open).
+- There is an unresolved parity difference between the V3 source and derived-case counts: `strategy_variant_signals` has 4,699 resolved / 1,246 unresolved, while `research_cases` has 4,667 resolved / 1,266 open and 5,933 total cases. The totals differ by 12 and the resolved counts by 32. Do not treat the derived cases as a complete mirror until the refresh function's inclusion, maturity and upsert rules are reconciled.
+- `research_evidence`: 8,584 rows, all currently tagged `entry_context`; none has a null `available_at` or `available_at < observed_at`. This is a structural check only: the live refresh function uses source `created_at` for both times in several paths, so the timestamps are not independently proven to represent true feature availability.
+
+These figures are useful for Observatory ingestion planning but are not a substitute for deduplication by the correct symbol-cycle identity, V3 cohort parity, chronological out-of-sample evaluation, or an exact source-to-archive ID/hash reconciliation.
+
+
+## Exact source/archive reconciliation — SHA-256, 2026-10-22
+
+A fresh read-only pass compared the full source ID sets with IDs extracted from all archived JSON batches. Hashes use PostgreSQL `pgcrypto.digest(..., 'sha256')`; archive batches were checked for duplicate IDs and unexpected IDs.
+
+| Dataset | Current source rows | Archived distinct IDs | Missing source IDs | Unexpected archive IDs | Full-row SHA-256 mismatches among overlapping IDs |
+|---|---:|---:|---:|---:|---:|
+| `research_cases` | 8,585 | 7,276 | 1,309 | 0 | 2,859 |
+| `research_evidence` | 8,621 | 7,311 | 1,310 | 0 | 0 |
+| `early_entry_variant_decisions` | 3,487 | 3,073 | 414 | 0 | 0 |
+
+No duplicate IDs were found within the archived batches for these datasets. The live counts differ from earlier snapshots because source data continues to change; use the count/hash snapshot from this pass as the current reconciliation baseline.
+
+### What the row hashes prove
+
+- `research_evidence`: all 7,311 overlapping rows match the full-row SHA-256.
+- `early_entry_variant_decisions`: all 3,073 overlapping rows match the full-row SHA-256.
+- `research_cases`: all 7,276 archived IDs exist in the source, but 2,859 full-row hashes differ. A field-by-field comparison found that every difference is confined to mutable outcome/lifecycle fields: `net_pnl`, `outcome`, `updated_at`, `maturity_at`, `resolved_at`, and `close_reason`. The immutable identity/strategy/context projection matched for all 7,276 overlapping cases. This is stale outcome state in the archive, not evidence of mismatched source identity.
+
+Therefore the archive is not ready to serve as the Observatory's canonical outcomes store. The next bounded idempotent refresh should upsert the 1,309 missing cases, 1,310 missing evidence records and 414 missing Early Entry decisions, then refresh the 2,859 stale case outcome rows. Re-run the same SHA-256 reconciliation afterward and require zero missing IDs, zero extra IDs, zero duplicates, and zero hash mismatches before marking these datasets complete. Do not enable source deletion.
+
+### Historical sentiment-cleanup SQL recovery
+
+The two migration records exist in the production migration history, but their SQL files were not found in the current `main` tree, eight examined relevant branches, GitHub file/commit searches, or the existing archive's repository-file path index. Their exact DELETE predicates cannot be safely reconstructed from migration names alone. Keep this as an unresolved forensic item; do not recreate guessed SQL or claim exact historical deletion scope without a trusted commit, backup, or audit log.
+
+
+## Post-transfer verification — 2026-10-22 (supersedes the earlier pre-transfer gap counts)
+
+A bounded, append-only reconciliation was completed against the verified archive project `ragdznxfozdpxetwisrd`. It copied only missing source rows and appended newer versions for changed `research_cases` outcome states. The canonical source `yckewtpfttvwiptmmrfq` was not modified; no source deletes, schema changes, or retention-flag changes occurred.
+
+| Dataset | Source rows at final verification | Latest archive distinct IDs | Missing IDs | Extra IDs | Full-row SHA-256 mismatches |
+|---|---:|---:|---:|---:|---:|
+| `research_cases` | 8,592 | 8,592 | 0 | 0 | 0 |
+| `research_evidence` | 8,628 | 8,628 | 0 | 0 | 0 |
+| `early_entry_variant_decisions` | 3,490 | 3,490 | 0 | 0 | 0 |
+
+The final verification compared full-row SHA-256 hashes using PostgreSQL `pgcrypto.digest`. For `research_cases`, earlier archived versions are retained; consumers must select the latest version per `id` by `updated_at` (then archive `generated_at` as a tie-breaker) before treating the archive as the current-state mirror. The new append-only batches carry per-row SHA-256 hashes in `payload.record_hashes`.
+
+The archive now contains 436 documents and occupies about 17 MB. The three reconciled datasets are complete **as of this verification snapshot**; new source writes can create future deltas, so rerun reconciliation before any source retention or deletion is enabled.
+
+This is not a full production transfer and does not prove the full repository code backup succeeded. PR [#140](https://github.com/gepappas98/pixel-perfect-pixels/pull/140) is merged at `4ae407ec2528456dc7baf210394643002a7cea1d`, but the archive still contains no `code-backup-latest` pointer or `code-snapshot-manifest-*` document. The full-repository backup is therefore **not yet verified**. The available GitHub connection cannot list GitHub Actions secret names or dispatch/inspect the push-triggered workflow run; confirm the two secrets in the `research-lab-archive` environment and run [the backup workflow](https://github.com/gepappas98/pixel-perfect-pixels/actions/workflows/research-lab-code-backup.yml). Accept success only when the run summary explicitly reports `all_tracked_files_included: true`.
+
+The archive table privilege-hardening migration remains in open PR #8 and has not been applied. Keep `allow_archive=false` and `allow_source_delete=false`; no source cleanup is authorized by this reconciliation.
+
+
+## Batch research inventory — live snapshot 2026-10-22 21:25 UTC
+
+Read-only counts from the canonical production Supabase. These are current observations, not immutable baselines; new rows appeared after the append-only archive verification at approximately 21:02 UTC.
+
+### Current core datasets
+
+| Dataset | Current rows | First/latest observed timestamp where available | Archive state |
+|---|---:|---|---|
+| `research_cases` | 8,609 | Derived outcome cases | Last verified archive: 8,592; current delta +17 |
+| `research_evidence` | 8,645 | Evidence rows | Last verified archive: 8,628; current delta +17 |
+| `early_entry_variant_decisions` | 3,496 | Decision rows | Last verified archive: 3,490; current delta +6 |
+| `strategy_variant_signals` | 71,739 | 2026-10-14 through 2026-10-22 21:20 UTC | Not included in the three-table reconciliation |
+| `strategy_shadow_diagnostics` | 161,413 | High-volume diagnostic history | Not yet reconciled/transferred |
+| `council_signals` | 6,233 | Council source/sync timestamps | Not yet reconciled/transferred |
+| `council_lessons` | 313 | 2026-10-12 through 2026-10-21 21:10 UTC | Not yet reconciled/transferred |
+| `cmc_listing_snapshots` | 28,200 | 2026-10-15 through 2026-10-22 20:20 UTC; 1,037 symbols | Not yet reconciled/transferred |
+| `cmc_macro_snapshots` | 334 | 2026-10-15 through 2026-10-22 21:20 UTC | Not yet reconciled/transferred |
+| `event_flow_transmissions` | 72 | 2026-10-12 through 2026-10-22 20:30 UTC; 12 assets | Not yet reconciled/transferred |
+| `event_flow_paper_decisions` | 42 | 2026-10-14 through 2026-10-22 21:25 UTC | Not yet reconciled/transferred |
+| `trades` | 365 | Paper-trade outcomes and open positions | Not yet reconciled/transferred |
+
+### Trade outcome snapshot
+
+| Entry source | Total | Closed | Open | Closed `net_pnl` sum |
+|---|---:|---:|---:|---:|
+| CMC Paper | 222 | 217 | 5 | -$137.82 |
+| Early Entry Regime | 26 | 24 | 2 | +$225.16 |
+| Event Flow Paper | 44 | 39 | 5 | -$162.51 |
+| Standard | 73 | 72 | 1 | -$122.33 |
+| **Total** | **365** | **352** | **13** | **-$197.50** |
+
+These sums are from the current `trades.net_pnl` field filtered to closed trades. Preserve gross PnL, fees, net PnL, close reason, entry metadata, and the open/closed status as separate facts in the Observatory; never infer realized PnL from open positions.
+
+### Strategy variant population
+
+- V2: 65,735 raw rows; all resolved; mean stored `pnl_pct` -0.7018%.
+- V3: 6,004 raw rows; 4,880 resolved and 1,124 unresolved; mean stored `pnl_pct` +0.5748% among resolved rows.
+- These are raw variant rows and are **not** unique symbol-cycle samples. Do not compare V2 to V3 as if they were deduplicated independent observations. V2 is historical/reference only; V3 must be deduplicated and aligned to the live MTF scoring contract before inference.
+
+### Council learning quality
+
+- `council_lessons`: 313 lessons across 66 symbols.
+- All 313 have a `source_trade_id` and non-null `realized_pnl`; no lesson is shorter than 20 characters.
+- Lesson counts are concentrated in GTC (45), OSMO (31), and AMP (31), which is a coverage/skew signal, not evidence that those symbols have the most predictive lessons.
+- Observatory should retain up to five **distinct, evidence-linked** lessons per symbol, with source trade, entry context, verdict/conviction, realized outcome and created timestamp. Keep rejected, contradicted and superseded lessons in the audit trail; do not let duplicate wording consume the five slots.
+
+### Event→Flow and CMC data quality
+
+- `cmc_listing_snapshots`: 28,200 rows / 1,037 symbols, no missing `price_usd` in this snapshot. `cmc_macro_snapshots`: 334 rows. CMC remains discovery/context and a label source, never a standalone BUY voter.
+- `event_flow_transmissions`: 72 rows / 12 assets; 27 rows have `data_quality` outside the accepted labels `ok`, `good`, or `complete`. Review actual label values before treating that count as unusable records.
+- `event_flow_paper_decisions`: 42 rows, 14 missing `sentiment_score`. Preserve them as incomplete decisions rather than dropping them; investigate source freshness and gate eligibility.
+
+### Immediate incremental work
+
+1. Reconcile the +17 cases, +17 evidence rows and +6 Early Entry decisions that appeared after the last verified archive snapshot. Re-run latest-state SHA-256 checks after append-only sync; keep source deletion disabled.
+2. Inspect the full repository backup workflow status. The archive still has no `code-backup-latest` pointer or `code-snapshot-manifest-*` document, so the full code backup is **not verified**. The connector cannot inspect GitHub environment secrets or dispatch a workflow; a maintainer must confirm the two archive-only secrets and run the workflow from GitHub Actions.
+3. Expand the transfer manifest to the unverified tables above, starting with `trades`, `council_lessons`, `council_signals`, V3 variant signals, Early Entry regime observations, CMC macro/listing snapshots, and Event→Flow decisions/transmissions. Record exact source table, source ID, content hash, source timestamps and transfer snapshot time.
+4. Profile `strategy_shadow_diagnostics` (161,413 rows / ~133 MiB) before copying every raw row. Preserve raw data in a bounded archive if needed, but derive compact, versioned rollups for the Observatory instead of duplicating large JSON payloads into dashboard queries.
+
+### Review state
+
+PR [#8](https://github.com/gepappas98/intelligent-research-lab/pull/8) remains open and has no submitted reviews. The migration is not applied. Its least-privilege intent is to revoke all table privileges from `public`, `anon`, `authenticated`, and `service_role`, then grant only `SELECT`, `INSERT`, and `UPDATE` to `service_role` for the idempotent uploader; it deliberately grants no `DELETE` or `TRUNCATE`. Review/approval is still required before merging or applying it to the verified IRL project.
+
+
+### Realized trade performance metrics — current snapshot
+
+Metrics below are computed from closed rows in `trades`, grouped by `entry_source`. Win rate is positive `net_pnl` divided by closed rows with non-null `net_pnl`. Average win/loss uses the actual signed net PnL. Drawdown is the minimum cumulative PnL minus running peak, ordered by `closed_at,id`, with a zero starting baseline; it is **not** a percent drawdown of equity.
+
+| Entry source | Closed | Wins | Losses | Win rate | Net PnL | Average win | Average loss | Max drawdown (USD PnL curve) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| CMC Paper | 217 | 87 | 130 | 40.09% | -$137.82 | +$41.08 | -$28.55 | -$851.32 |
+| Early Entry Regime | 24 | 9 | 15 | 37.50% | +$225.16 | +$55.46 | -$18.26 | -$143.69 |
+| Event Flow Paper | 39 | 16 | 23 | 41.03% | -$162.51 | +$30.51 | -$28.29 | -$382.39 |
+| Standard | 72 | 29 | 43 | 40.28% | -$122.33 | +$29.52 | -$22.75 | -$670.74 |
+
+These are descriptive results from the present paper-trade ledger, not an out-of-sample strategy verdict. Before ranking strategies, reconcile position sizing, exposure overlap, trade chronology, fees and the source's status semantics. The UI attribution code maps each actual paper trade by `entry_source` / `entry_metadata.strategy`; shadow decisions must remain excluded from trade count and PnL. Future Observatory views should calculate time-normalized and equity-normalized drawdown in addition to this raw PnL curve.
