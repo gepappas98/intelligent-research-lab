@@ -61,7 +61,8 @@ function useResearchData() {
   const refresh = useCallback(async () => {
     if (!supabase) { setData(prior => ({...prior, archiveError:"Supabase environment variables are missing."})); setLastSync(new Date()); return; }
     setLoading(true);
-    const archivePromise = supabase.functions.invoke("archive-summary", { method: "GET" });
+    // The category summary endpoint already returns aggregate document_count and generated_at.
+    // Keep the Observatory read-only and avoid calling an archive-summary function that is not in this repo.
     const categoryPromise = supabase.functions.invoke("archive-category-summary", { method: "GET" });
     const specs = [
       ["trades", ["trades", "paper_trades", "trade_outcomes"]],
@@ -71,15 +72,16 @@ function useResearchData() {
       ["cmc", ["cmc_observations", "cmc_snapshots", "coinmarketcap_snapshots"]]
     ] as const;
     const results = await Promise.all(specs.map(async ([key, candidates]) => [key, await readTable(supabase!, [...candidates])] as const));
-    const [archiveResult, categoryResult] = await Promise.all([archivePromise, categoryPromise]);
-    const summary = archiveResult.data as { document_count?: number; generated_at?: string } | null;
-    const categorySummary = categoryResult.data as { by_type?: ArchiveCategory[] } | null;
+    const categoryResult = await categoryPromise;
+    const categorySummary = categoryResult.data as { document_count?: number; generated_at?: string; by_type?: ArchiveCategory[] } | null;
+    const hasArchiveSummary = typeof categorySummary?.document_count === "number";
+    const hasCategories = Array.isArray(categorySummary?.by_type);
     const next: any = { trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[],
-      archiveDocumentCount: archiveResult.error ? null : (typeof summary?.document_count === "number" ? summary.document_count : null),
-      archiveGeneratedAt: summary?.generated_at ?? null,
-      archiveError: archiveResult.error ? "archive-summary request failed" : (typeof summary?.document_count === "number" ? null : "archive-summary returned no document_count"),
-      archiveCategories: categoryResult.error ? [] : (Array.isArray(categorySummary?.by_type) ? categorySummary.by_type : []),
-      archiveCategoryError: categoryResult.error ? "archive-category-summary request failed" : (Array.isArray(categorySummary?.by_type) ? null : "archive-category-summary returned no categories")
+      archiveDocumentCount: categoryResult.error || !hasArchiveSummary ? null : categorySummary!.document_count!,
+      archiveGeneratedAt: categorySummary?.generated_at ?? null,
+      archiveError: categoryResult.error ? "archive-category-summary request failed" : (hasArchiveSummary ? null : "archive-category-summary returned no document_count"),
+      archiveCategories: categoryResult.error || !hasCategories ? [] : categorySummary!.by_type!,
+      archiveCategoryError: categoryResult.error ? "archive-category-summary request failed" : (hasCategories ? null : "archive-category-summary returned no categories")
     };
     const used: Record<string,string> = {};
     for (const [key, result] of results) {
