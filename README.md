@@ -1,52 +1,49 @@
-# Intelligent Research Lab
+# Intelligent Research Observatory
 
-An independent, research-only platform for evaluating crypto signals, strategies, entry ranks, market conditions and outcome paths.
+A responsive, research-only command center for viewing signal/trade outcomes, strategy cohorts, source freshness, data-quality issues and Council lessons.
 
-## Core principles
+## Open in Lovable
 
-- **Research only:** no trade execution and no writes to the Trading Command Center execution tables.
-- **Immutable initial snapshots:** capture only information available at the signal time; never rewrite the initial snapshot when the outcome changes.
-- **Separate later events and outcomes:** retain meaningful changes and outcome revisions as separate, traceable records.
-- **Bitemporal provenance:** distinguish when something happened from when the system learned about it.
-- **No look-ahead bias:** later-known information may explain an outcome path, but must not be presented as known at entry.
-- **Reproducibility:** version completion rules, calculations, samples and experiments.
-- **Data quality first:** expose missingness and uncertainty; never fabricate historical context or silently treat incomplete outcomes as losses or wins.
-- **Storage safety:** avoid copying large upstream payloads; monitor table, TOAST, index sizes and growth.
+1. Connect this GitHub repository to a **new, separate Lovable project**.
+2. Let Lovable install the dependencies and preview the Vite/React UI.
+3. The first load is intentionally a clearly labelled **Demo preview**. Those rows and metrics are illustrative; they are not production data.
+4. To enable live reads, add these Vite environment variables in the Lovable project settings:
+   - `VITE_SUPABASE_URL`: URL of the explicitly approved research/archive Supabase project.
+   - `VITE_SUPABASE_ANON_KEY`: that project's public anon key, with read-only SELECT policies.
+5. Refresh the page. The connection indicator changes to **Source connected**. Unmapped tables are shown explicitly in Data Quality.
 
-## Project status
+## Read-only source integration
 
-**Phase:** P0 forensic audit, knowledge consolidation and transfer preparation.  
-**Production row transfer has not run:** the isolated IRL database destination is not yet verified. No source rows have been deleted.
+The UI only calls Supabase `select()`; it contains no insert/update/delete, RPC, Edge Function invocation, trade execution, or strategy mutation. Never put a service-role key in a browser app. Use a public anon key and enforce SELECT-only RLS policies on the approved source.
 
-Read [the preliminary P0 Infrastructure & Data Audit](docs/P0_AUDIT.md) for observed facts, unresolved questions and next steps.
+Table discovery uses these candidate names, in order:
 
-## Planned research areas
+| UI area | Candidate tables |
+| --- | --- |
+| Trade outcomes | `trades`, `paper_trades`, `trade_outcomes` |
+| Council lessons | `council_lessons`, `ai_council_lessons`, `research_lessons` |
+| Research evidence | `research_evidence`, `signal_evidence`, `evidence_snapshots` |
+| V3 / strategy variants | `strategy_variant_signals`, `variant_signals`, `v3_benchmark_results` |
+| CMC context | `cmc_observations`, `cmc_snapshots`, `coinmarketcap_snapshots` |
 
-1. Source inventory and data-quality checks.
-2. Immutable observation snapshots and subsequent observation events.
-3. Versioned outcome evaluation, including net PnL and costs.
-4. Sequential samples and comparable cohorts.
-5. Strategy Lab, Entry Rank Lab and Condition Discovery.
-6. Statistical uncertainty, chronological out-of-sample validation and experiment registry.
+The schema is not migrated by this repository. If the source uses different names, update the candidate arrays in `src/App.tsx` after verifying the actual schema. The client loads up to 150 recent rows per source for an initial UI prototype; this is not a complete historical export or statistical-grade calculation. A production analytics layer should use audited views and pagination/aggregations.
 
-## Initial implementation boundary
+## Research safeguards
 
-Start read-only against existing sources. Confirm GitHub, Lovable and Supabase project identities before connecting anything. Keep IRL physically and logically isolated from live/paper execution paths. No automatic strategy switching or execution integration is part of v1.
+- Research-only: no orders and no writes to execution tables.
+- Keep entry-time snapshots separate from later outcomes.
+- Preserve source IDs and timestamps where available; don't merge duplicate events by symbol alone.
+- Use V3-aligned MTF comparisons; do not blend Legacy/V2 into active cohort scores.
+- CMC is market context/discovery, never a standalone BUY vote.
+- Treat lessons as hypotheses; no automatic strategy switching or threshold updates.
+- Demo values are never presented as live data.
 
-## Transfer and data-contract work (draft PR)
+## Local development
 
-- [Consolidated research knowledge ledger](docs/RESEARCH_KNOWLEDGE_LEDGER.md)
-- [Machine-readable strategy and experiment catalog](docs/STRATEGY_CATALOG.json)
-- [Source-preserving research data transfer runbook](docs/RESEARCH_DATA_TRANSFER_RUNBOOK.md)
-- [Source export execution plan and migration-history caveats](docs/EXPORT_EXECUTION_PLAN.md)
+```bash
+npm install
+npm run dev
+npm run build
+```
 
-The following documents are being reviewed on branch `research/knowledge-transfer-p0`; they do not authorize a database migration or production import:
-
-- [Research knowledge transfer and source caveats](docs/RESEARCH_KNOWLEDGE_TRANSFER.md)
-- [P0 bitemporal data contract and Legacy/V2/V3 cohort rules](docs/DATA_CONTRACT_P0.md)
-- [Wrong-repository incident containment and rollback gates](docs/WRONG_REPO_CONTAINMENT_AND_ROLLBACK.md)
-- [Wrong-repository dependency inventory, callers, SQL routines and cron jobs](docs/WRONG_REPO_DEPENDENCY_INVENTORY.md)
-
-IRL's own isolated writable database is still unconfirmed. Until it is positively identified, remain read-only against source systems and do not apply migrations or copy production records.
-
-Current database identity blockers and the latest destination recheck are documented in [the Supabase project map](docs/SUPABASE_PROJECT_MAP.md).
+Required environment variables are optional for demo preview and required for live reads.
