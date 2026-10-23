@@ -59,8 +59,19 @@ const statusOf = (r: Row) => String(r.status ?? r.outcome ?? r.verdict ?? "obser
 
 async function readTable(client: SupabaseClient, candidates: string[]): Promise<{ rows: Row[]; used: string | null; error?: string }> {
   for (const table of candidates) {
-    const { data, error } = await client.from(table).select("*").limit(150).order("created_at", { ascending: false });
-    if (!error) return { rows: (data ?? []) as Row[], used: table };
+    const ordered = await client.from(table).select("*").order("created_at", { ascending: false }).limit(150);
+    if (!ordered.error) return { rows: (ordered.data ?? []) as Row[], used: table };
+    // Some source tables use observed_at / captured_at instead of created_at. Retry without assuming a timestamp column.
+    const fallback = await client.from(table).select("*").limit(150);
+    if (!fallback.error) {
+      const rows = (fallback.data ?? []) as Row[];
+      rows.sort((a, b) => {
+        const ta = new Date(String(a.created_at ?? a.observed_at ?? a.available_at ?? a.captured_at ?? 0)).getTime();
+        const tb = new Date(String(b.created_at ?? b.observed_at ?? b.available_at ?? b.captured_at ?? 0)).getTime();
+        return tb - ta;
+      });
+      return { rows, used: table };
+    }
   }
   return { rows: [], used: null, error: `No readable table found among: ${candidates.join(", ")}` };
 }
