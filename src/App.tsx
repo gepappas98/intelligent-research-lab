@@ -17,7 +17,7 @@ type Dataset = { trades: Row[]; lessons: Row[]; evidence: Row[]; variants: Row[]
 type Tab = "overview" | "strategies" | "quality" | "memory";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const supabaseKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY) as string | undefined;
 const isLiveConfigured = Boolean(supabaseUrl && supabaseKey);
 const supabase: SupabaseClient | null = isLiveConfigured ? createClient(supabaseUrl!, supabaseKey!, {
   auth: { persistSession: false, autoRefreshToken: false }
