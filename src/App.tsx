@@ -12,7 +12,8 @@ import {
 } from "recharts";
 
 type Row = Record<string, any>;
-type Dataset = { trades: Row[]; lessons: Row[]; evidence: Row[]; variants: Row[]; cmc: Row[]; errors: string[]; archiveDocumentCount: number | null; archiveGeneratedAt: string | null; archiveError: string | null };
+type ArchiveCategory = { record_type: string; document_count: number; latest_created_at: string | null; snapshot_rows_declared_max: number; batch_records_declared: number };
+type Dataset = { trades: Row[]; lessons: Row[]; evidence: Row[]; variants: Row[]; cmc: Row[]; errors: string[]; archiveDocumentCount: number | null; archiveGeneratedAt: string | null; archiveError: string | null; archiveCategories: ArchiveCategory[]; archiveCategoryError: string | null };
 type Tab = "overview" | "strategies" | "quality" | "memory";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -77,7 +78,7 @@ async function readTable(client: SupabaseClient, candidates: string[]): Promise<
 }
 
 function useResearchData() {
-  const [data, setData] = useState<Dataset>({ trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[], archiveDocumentCount:null, archiveGeneratedAt:null, archiveError:null });
+  const [data, setData] = useState<Dataset>({ trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[], archiveDocumentCount:null, archiveGeneratedAt:null, archiveError:null, archiveCategories:[], archiveCategoryError:null });
   const [loading, setLoading] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [tables, setTables] = useState<Record<string,string>>({});
@@ -85,6 +86,7 @@ function useResearchData() {
     if (!supabase) { setData((prior) => ({ ...prior, archiveError: "Supabase environment variables are missing." })); setLastSync(new Date()); return; }
     setLoading(true);
     const archivePromise = supabase!.functions.invoke("archive-summary", { method: "GET" });
+    const categoryPromise = supabase!.functions.invoke("archive-category-summary", { method: "GET" });
     const specs = [
       ["trades", ["trades", "paper_trades", "trade_outcomes"]],
       ["lessons", ["council_lessons", "ai_council_lessons", "research_lessons"]],
@@ -93,9 +95,10 @@ function useResearchData() {
       ["cmc", ["cmc_observations", "cmc_snapshots", "coinmarketcap_snapshots"]]
     ] as const;
     const results = await Promise.all(specs.map(async ([key, candidates]) => [key, await readTable(supabase!, [...candidates])] as const));
-    const archiveResult = await archivePromise;
+    const [archiveResult, categoryResult] = await Promise.all([archivePromise, categoryPromise]);
     const summary = archiveResult.data as { document_count?: number; generated_at?: string } | null;
-    const next: any = { trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[], archiveDocumentCount: archiveResult.error ? null : (typeof summary?.document_count === "number" ? summary.document_count : null), archiveGeneratedAt: summary?.generated_at ?? null, archiveError: archiveResult.error ? "archive-summary request failed" : (typeof summary?.document_count === "number" ? null : "archive-summary returned no document_count") };
+    const categorySummary = categoryResult.data as { by_type?: ArchiveCategory[] } | null;
+    const next: any = { trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[], archiveDocumentCount: archiveResult.error ? null : (typeof summary?.document_count === "number" ? summary.document_count : null), archiveGeneratedAt: summary?.generated_at ?? null, archiveError: archiveResult.error ? "archive-summary request failed" : (typeof summary?.document_count === "number" ? null : "archive-summary returned no document_count"), archiveCategories: categoryResult.error ? [] : (Array.isArray(categorySummary?.by_type) ? categorySummary.by_type : []), archiveCategoryError: categoryResult.error ? "archive-category-summary request failed" : (Array.isArray(categorySummary?.by_type) ? null : "archive-category-summary returned no categories") };
     const used: Record<string,string> = {};
     for (const [key, result] of results) {
       next[key] = result.rows;
@@ -168,6 +171,7 @@ export default function App() {
         <div className="page-heading"><div><div className="overline"><span className="overline-line"/>{data.archiveDocumentCount !== null ? "LIVE ARCHIVE ENVIRONMENT" : "CONNECTION NOT VERIFIED"} <span className="overline-sep">·</span> {new Date().toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}</div><h1>{current.title}</h1><p>{current.desc}</p></div><div className="heading-actions"><button className="button secondary" onClick={()=>void refresh()} disabled={loading}><RefreshCw size={15} className={loading?"spin":""}/>{loading?"Refreshing":"Refresh data"}</button><button className="button primary" onClick={()=>setTab("quality")}><Activity size={15}/>System health</button></div></div>
         {data.archiveError && <div className="warning-banner"><CircleHelp size={18}/><div><strong>Archive summary unavailable</strong><span>{data.archiveError}. No synthetic data is displayed.</span></div></div>}
         {!data.archiveError && data.archiveDocumentCount !== null && <div className="source-status-note"><Database size={16}/><span>Archive connected · {data.archiveDocumentCount.toLocaleString()} documents · verified {formatDate(data.archiveGeneratedAt)}</span></div>}
+        {data.archiveCategories.length > 0 && <section className="panel" style={{ marginBottom: 20 }}><div className="panel-heading"><div><div className="panel-kicker">ARCHIVE INVENTORY · AGGREGATED METADATA</div><h3>Verified archive categories</h3><p>Real document counts only; private payload content is not returned to the browser.</p></div><span className="source-state ok">{data.archiveCategories.length} CATEGORIES</span></div><div className="table-scroll"><table><thead><tr><th>ARCHIVE CATEGORY</th><th>DOCUMENTS</th><th>DECLARED SOURCE ROWS (MAX)</th><th>DECLARED BATCH RECORDS</th><th>LAST ARCHIVED</th></tr></thead><tbody>{data.archiveCategories.slice(0,12).map((c)=><tr key={c.record_type}><td><strong>{c.record_type}</strong></td><td>{c.document_count.toLocaleString()}</td><td>{c.snapshot_rows_declared_max ? c.snapshot_rows_declared_max.toLocaleString() : "—"}</td><td>{c.batch_records_declared ? c.batch_records_declared.toLocaleString() : "—"}</td><td>{formatDate(c.latest_created_at)}</td></tr>)}</tbody></table></div><div className="table-footer"><span>Top 12 of {data.archiveCategories.length} archive categories</span><span>Aggregates only · no archive payload values exposed</span></div>{data.archiveCategoryError && <div className="error-list"><p>{data.archiveCategoryError}</p></div>}</section>}
         {!demo && data.errors.length>0 && <div className="warning-banner"><CircleHelp size={18}/><div><strong>Source connected; some research tables could not be read</strong><span>Check table names and SELECT policies. The UI never writes to the database.</span></div></div>}
         {tab==="overview" && <>
           <div className="metrics-grid">
