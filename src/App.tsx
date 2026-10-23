@@ -126,7 +126,7 @@ export default function App() {
   const demo = !isLiveConfigured;
   const trades = demo ? demoTrades : data.trades;
   const lessons = demo ? demoLessons : data.lessons;
-  const evidence = demo ? Array.from({length:24}, (_,i)=>({id:i, source:["Trading signals","Council","CMC","Event → Flow"][i%4], symbol:["BTC","ETH","ARB","FET","SOL"][i%5], observed_at:new Date(Date.now()-i*3600000).toISOString(), quality:i%7===0?"Review":"Verified"})) : data.evidence;
+  const evidence: Row[] = demo ? Array.from({length:24}, (_,i)=>({id:i, source:["Trading signals","Council","CMC","Event → Flow"][i%4], symbol:["BTC","ETH","ARB","FET","SOL"][i%5], observed_at:new Date(Date.now()-i*3600000).toISOString(), quality:i%7===0?"Review":"Verified"})) : data.evidence;
   const variants = demo ? demoStrategies : data.variants;
   const filteredTrades = useMemo(() => trades.filter(r => `${symbolOf(r)} ${r.strategy ?? r.strategy_name ?? r.entry_source ?? ""} ${r.status ?? ""}`.toLowerCase().includes(search.toLowerCase())), [trades, search]);
   const closedTrades = trades.filter(r => String(r.status ?? "").toLowerCase().includes("closed") || r.closed_at || r.close_reason);
