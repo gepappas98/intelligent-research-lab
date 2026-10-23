@@ -1,7 +1,2 @@
-{
-  "functions": {
-    "archive-summary": {
-      "verify_jwt": true
-    }
-  }
-}
+[functions.archive-summary]
+verify_jwt = true
