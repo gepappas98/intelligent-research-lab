@@ -18,6 +18,9 @@ type Tab = "overview" | "strategies" | "quality" | "memory";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 const isLiveConfigured = Boolean(supabaseUrl && supabaseKey);
+const archiveUrl = import.meta.env.VITE_ARCHIVE_SUPABASE_URL as string | undefined;
+const archiveAnonKey = import.meta.env.VITE_ARCHIVE_SUPABASE_ANON_KEY as string | undefined;
+const archiveClient = archiveUrl && archiveAnonKey ? createClient(archiveUrl, archiveAnonKey, { auth: { persistSession: false, autoRefreshToken: false } }) : null;
 const supabase: SupabaseClient | null = isLiveConfigured ? createClient(supabaseUrl!, supabaseKey!, {
   auth: { persistSession: false, autoRefreshToken: false }
 }) : null;
@@ -123,6 +126,19 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data, loading, lastSync, tables, refresh } = useResearchData();
+  const [archiveStatus, setArchiveStatus] = useState<{state:"unconfigured"|"loading"|"connected"|"error";count?:number;message?:string}>({state:"unconfigured"});
+  useEffect(() => {
+    let active = true;
+    if (!archiveClient) { setArchiveStatus({state:"unconfigured"}); return () => { active = false; }; }
+    setArchiveStatus({state:"loading"});
+    archiveClient.functions.invoke("archive-summary", { method: "GET" }).then(({data: result, error}) => {
+      if (!active) return;
+      if (error || !result || typeof result.document_count !== "number" || result.payload_values_exposed !== false) {
+        setArchiveStatus({state:"error",message:"Archive summary unavailable or response failed validation."});
+      } else { setArchiveStatus({state:"connected",count:result.document_count}); }
+    }).catch(() => { if (active) setArchiveStatus({state:"error",message:"Archive request failed."}); });
+    return () => { active = false; };
+  }, []);
   const demo = !isLiveConfigured;
   const trades = demo ? demoTrades : data.trades;
   const lessons = demo ? demoLessons : data.lessons;
@@ -162,6 +178,10 @@ export default function App() {
     <main className="main">
       <header className="topbar"><button className="mobile-menu" onClick={()=>setMobileOpen(true)}><Menu size={19}/></button><div className="breadcrumbs">Workspace <span>/</span> <strong>{navItems.find(n=>n.id===tab)?.label}</strong></div><div className="top-actions"><div className={`connection-pill ${demo?"demo":"connected"}`}><span className="status-dot"/>{demo?"DEMO DATA":"SOURCE CONNECTED"}</div><button className="icon-button" title="Notifications"><Bell size={17}/><i/></button><div className="user-avatar">G</div></div></header>
       <div className="page-content">
+        <section className="panel" aria-live="polite" style={{marginBottom: "18px"}}>
+          <div className="section-title"><div><div className="eyebrow">ARCHIVE CONNECTIVITY</div><h2>Research archive</h2><p>Separate read-only summary endpoint. Raw archive payload values are never returned to this dashboard.</p></div><span className={`state-tag ${archiveStatus.state === "connected" ? "ok" : archiveStatus.state === "error" ? "missing" : "neutral"}`}>{archiveStatus.state === "connected" ? "CONNECTED" : archiveStatus.state === "loading" ? "CHECKING" : archiveStatus.state === "error" ? "UNAVAILABLE" : "NOT CONFIGURED"}</span></div>
+          <div className="metrics-grid"><Metric label="Archived documents" value={archiveStatus.state === "connected" ? String(archiveStatus.count) : "—"} sub={archiveStatus.state === "connected" ? "Count only · server-side read" : archiveStatus.state === "unconfigured" ? "Set the two VITE_ARCHIVE_* variables" : archiveStatus.message ?? "JWT-protected request"} icon={Database}/></div>
+        </section>
         <div className="page-heading"><div><div className="overline"><span className="overline-line"/>{demo?"PREVIEW ENVIRONMENT":"LIVE RESEARCH ENVIRONMENT"} <span className="overline-sep">·</span> {new Date().toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}</div><h1>{current.title}</h1><p>{current.desc}</p></div><div className="heading-actions"><button className="button secondary" onClick={()=>void refresh()} disabled={loading}><RefreshCw size={15} className={loading?"spin":""}/>{loading?"Refreshing":"Refresh data"}</button><button className="button primary" onClick={()=>setTab("quality")}><Activity size={15}/>System health</button></div></div>
         {demo && <div className="demo-banner"><Sparkles size={17}/><div><strong>Interactive UI preview</strong><span>Numbers and rows are illustrative, not production data. Add the read-only Supabase URL and anon key in Lovable project settings to switch to live queries.</span></div><span className="demo-tag">DEMO</span></div>}
         {!demo && data.errors.length>0 && <div className="warning-banner"><CircleHelp size={18}/><div><strong>Source connected; some research tables could not be read</strong><span>Check table names and SELECT policies. The UI never writes to the database.</span></div></div>}
