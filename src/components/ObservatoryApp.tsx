@@ -13,7 +13,8 @@ import {
 } from "recharts";
 
 type Row = Record<string, any>;
-type Dataset = { trades: Row[]; lessons: Row[]; evidence: Row[]; variants: Row[]; cmc: Row[]; errors: string[] };
+type ArchiveCategory = { record_type: string; document_count: number; latest_created_at: string | null; snapshot_rows_declared_max: number; batch_records_declared: number };
+type Dataset = { trades: Row[]; lessons: Row[]; evidence: Row[]; variants: Row[]; cmc: Row[]; errors: string[]; archiveDocumentCount: number | null; archiveGeneratedAt: string | null; archiveError: string | null; archiveCategories: ArchiveCategory[]; archiveCategoryError: string | null };
 type Tab = "overview" | "strategies" | "quality" | "memory";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -22,31 +23,6 @@ const isLiveConfigured = Boolean(supabaseUrl && supabaseKey);
 const supabase: SupabaseClient | null = isLiveConfigured ? createClient(supabaseUrl!, supabaseKey!, {
   auth: { persistSession: false, autoRefreshToken: false }
 }) : null;
-
-const demoTrades: Row[] = [
-  { symbol:"BTC", strategy:"Balanced", status:"closed", pnl_pct:2.8, pnl:28.4, created_at:"2026-10-23T05:10:00Z", close_reason:"take_profit" },
-  { symbol:"ETH", strategy:"Early Entry", status:"closed", pnl_pct:-1.1, pnl:-11.2, created_at:"2026-10-23T04:35:00Z", close_reason:"stale_exit" },
-  { symbol:"ARB", strategy:"Event → Flow", status:"closed", pnl_pct:-3.18, pnl:-31.8, created_at:"2026-10-23T03:52:00Z", close_reason:"stop_loss" },
-  { symbol:"FET", strategy:"Whale", status:"closed", pnl_pct:0.12, pnl:1.2, created_at:"2026-10-23T02:50:00Z", close_reason:"stop_loss" },
-  { symbol:"SOL", strategy:"Balanced", status:"open", pnl_pct:0.74, pnl:7.4, created_at:"2026-10-23T02:20:00Z", close_reason:"" },
-  { symbol:"C98", strategy:"Chart", status:"closed", pnl_pct:-3.34, pnl:-33.4, created_at:"2026-10-23T01:44:00Z", close_reason:"stop_loss" },
-];
-const demoLessons: Row[] = [
-  { symbol:"ARB", outcome:"loss", lesson:"Stop-loss closed after a 3.18% decline. Review volatility-aware stop placement; this single observation is a hypothesis, not a strategy change.", created_at:"2026-10-23T04:51:00Z", lesson_type:"AI post-mortem" },
-  { symbol:"FET", outcome:"win", lesson:"Exit was close to breakeven. Compare stop distance with realized volatility before inferring an upside effect.", created_at:"2026-10-23T04:50:00Z", lesson_type:"AI post-mortem" },
-  { symbol:"C98", outcome:"loss", lesson:"A 3.34% decline triggered the stop. Segment results by volatility regime before changing thresholds.", created_at:"2026-10-23T04:49:00Z", lesson_type:"AI post-mortem" },
-];
-const demoSeries: { day: string; pnl: number }[] = [
-  { day:"17 Oct", pnl:34 }, { day:"18 Oct", pnl:18 }, { day:"19 Oct", pnl:61 },
-  { day:"20 Oct", pnl:44 }, { day:"21 Oct", pnl:73 }, { day:"22 Oct", pnl:58 }, { day:"23 Oct", pnl:82 }
-];
-const demoStrategies: Row[] = [
-  { name:"Balanced", n:42, win:64.3, pnl:3.82, status:"Research cohort" },
-  { name:"Early Entry", n:18, win:61.1, pnl:2.14, status:"Paper metadata" },
-  { name:"Event → Flow", n:26, win:57.7, pnl:1.08, status:"Research-only" },
-  { name:"Whale", n:31, win:54.8, pnl:-0.42, status:"Research cohort" },
-  { name:"Legacy / V2", n:0, win:0, pnl:0, status:"Excluded from active comparison" },
-];
 
 const formatDate = (value: unknown) => {
   if (!value) return "—";
@@ -78,13 +54,15 @@ async function readTable(client: SupabaseClient, candidates: string[]): Promise<
 }
 
 function useResearchData() {
-  const [data, setData] = useState<Dataset>({ trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[] });
+  const [data, setData] = useState<Dataset>({ trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[], archiveDocumentCount:null, archiveGeneratedAt:null, archiveError:null, archiveCategories:[], archiveCategoryError:null });
   const [loading, setLoading] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [tables, setTables] = useState<Record<string,string>>({});
   const refresh = useCallback(async () => {
-    if (!supabase) { setLastSync(new Date()); return; }
+    if (!supabase) { setData(prior => ({...prior, archiveError:"Supabase environment variables are missing."})); setLastSync(new Date()); return; }
     setLoading(true);
+    const archivePromise = supabase.functions.invoke("archive-summary", { method: "GET" });
+    const categoryPromise = supabase.functions.invoke("archive-category-summary", { method: "GET" });
     const specs = [
       ["trades", ["trades", "paper_trades", "trade_outcomes"]],
       ["lessons", ["council_lessons", "ai_council_lessons", "research_lessons"]],
@@ -93,7 +71,16 @@ function useResearchData() {
       ["cmc", ["cmc_observations", "cmc_snapshots", "coinmarketcap_snapshots"]]
     ] as const;
     const results = await Promise.all(specs.map(async ([key, candidates]) => [key, await readTable(supabase!, [...candidates])] as const));
-    const next: any = { trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[] };
+    const [archiveResult, categoryResult] = await Promise.all([archivePromise, categoryPromise]);
+    const summary = archiveResult.data as { document_count?: number; generated_at?: string } | null;
+    const categorySummary = categoryResult.data as { by_type?: ArchiveCategory[] } | null;
+    const next: any = { trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[],
+      archiveDocumentCount: archiveResult.error ? null : (typeof summary?.document_count === "number" ? summary.document_count : null),
+      archiveGeneratedAt: summary?.generated_at ?? null,
+      archiveError: archiveResult.error ? "archive-summary request failed" : (typeof summary?.document_count === "number" ? null : "archive-summary returned no document_count"),
+      archiveCategories: categoryResult.error ? [] : (Array.isArray(categorySummary?.by_type) ? categorySummary.by_type : []),
+      archiveCategoryError: categoryResult.error ? "archive-category-summary request failed" : (Array.isArray(categorySummary?.by_type) ? null : "archive-category-summary returned no categories")
+    };
     const used: Record<string,string> = {};
     for (const [key, result] of results) {
       next[key] = result.rows;
@@ -124,21 +111,21 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data, loading, lastSync, tables, refresh } = useResearchData();
-  const demo = !isLiveConfigured;
-  const trades = demo ? demoTrades : data.trades;
-  const lessons = demo ? demoLessons : data.lessons;
-  const evidence: Row[] = demo ? Array.from({length:24}, (_,i)=>({id:i, source:["Trading signals","Council","CMC","Event → Flow"][i%4], symbol:["BTC","ETH","ARB","FET","SOL"][i%5], observed_at:new Date(Date.now()-i*3600000).toISOString(), quality:i%7===0?"Review":"Verified"})) : data.evidence;
-  const variants = demo ? demoStrategies : data.variants;
+  const demo = false;
+  const trades = data.trades;
+  const lessons = data.lessons;
+  const evidence: Row[] = data.evidence;
+  const variants = data.variants;
   const filteredTrades = useMemo(() => trades.filter(r => `${symbolOf(r)} ${r.strategy ?? r.strategy_name ?? r.entry_source ?? ""} ${r.status ?? ""}`.toLowerCase().includes(search.toLowerCase())), [trades, search]);
   const closedTrades = trades.filter(r => String(r.status ?? "").toLowerCase().includes("closed") || r.closed_at || r.close_reason);
   const wins = closedTrades.filter(r => pnlOf(r) > 0).length;
   const winRate = closedTrades.length ? wins / closedTrades.length * 100 : 0;
   const totalPnl = closedTrades.reduce((s,r)=>s+pnlOf(r),0);
-  const strategyRows = demo ? demoStrategies : Object.entries(data.variants.reduce((acc:Record<string,{n:number;wins:number;pnl:number}>, r) => {
+  const strategyRows = Object.entries(data.variants.reduce((acc:Record<string,{n:number;wins:number;pnl:number}>, r) => {
     const name = String(r.strategy_name ?? r.variant_name ?? r.strategy ?? "Unclassified");
     acc[name] ??= {n:0,wins:0,pnl:0}; acc[name].n++; acc[name].pnl += pnlOf(r); if(pnlOf(r)>0) acc[name].wins++; return acc;
   }, {})).map(([name,v])=>({name,n:v.n,win:v.n?v.wins/v.n*100:0,pnl:v.n?v.pnl/v.n:0,status:"Derived from observed rows"}));
-  const chartData = demo ? demoSeries : [...closedTrades].slice(0,30).reverse().reduce((acc: {day:string;pnl:number}[], r) => { const prior = acc.length ? acc[acc.length - 1].pnl : 0; acc.push({day:formatDate(r.closed_at ?? r.created_at),pnl:prior + pnlOf(r)}); return acc; }, []);
+  const chartData = [...closedTrades].slice(0,30).reverse().reduce((acc: {day:string;pnl:number}[], r) => { const prior = acc.length ? acc[acc.length - 1].pnl : 0; acc.push({day:formatDate(r.closed_at ?? r.created_at),pnl:prior + pnlOf(r)}); return acc; }, []);
   const navItems: {id:Tab; label:string; icon:any; group:string}[] = [
     {id:"overview",label:"Live Data Monitor",icon:LayoutDashboard,group:"OBSERVATORY"},
     {id:"strategies",label:"Strategy Intelligence",icon:FlaskConical,group:"OBSERVATORY"},
@@ -161,10 +148,10 @@ export default function App() {
       <div className="sidebar-bottom"><div className="safe-note"><ShieldCheck size={16}/><div><strong>Research-only boundary</strong><span>Read-only analytics. No order execution.</span></div></div><div className="sidebar-footer"><span className="status-dot"/><span>{demo ? "Demo preview" : "Supabase source configured"}</span><button title="Refresh data" onClick={()=>void refresh()}><RefreshCw size={14}/></button></div></div>
     </aside>
     <main className="main">
-      <header className="topbar"><button className="mobile-menu" onClick={()=>setMobileOpen(true)}><Menu size={19}/></button><div className="breadcrumbs">Workspace <span>/</span> <strong>{navItems.find(n=>n.id===tab)?.label}</strong></div><div className="top-actions"><div className={`connection-pill ${demo?"demo":"connected"}`}><span className="status-dot"/>{demo?"DEMO DATA":"SOURCE CONNECTED"}</div><button className="icon-button" title="Notifications"><Bell size={17}/><i/></button><div className="user-avatar">G</div></div></header>
+      <header className="topbar"><button className="mobile-menu" onClick={()=>setMobileOpen(true)}><Menu size={19}/></button><div className="breadcrumbs">Workspace <span>/</span> <strong>{navItems.find(n=>n.id===tab)?.label}</strong></div><div className="top-actions"><div className={`connection-pill ${demo?"demo":"connected"}`}><span className="status-dot"/>{data.archiveDocumentCount !== null ? "ARCHIVE VERIFIED" : "SOURCE UNVERIFIED"}</div><button className="icon-button" title="Notifications"><Bell size={17}/><i/></button><div className="user-avatar">G</div></div></header>
       <div className="page-content">
-        <div className="page-heading"><div><div className="overline"><span className="overline-line"/>{demo?"PREVIEW ENVIRONMENT":"LIVE RESEARCH ENVIRONMENT"} <span className="overline-sep">·</span> {new Date().toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}</div><h1>{current.title}</h1><p>{current.desc}</p></div><div className="heading-actions"><button className="button secondary" onClick={()=>void refresh()} disabled={loading}><RefreshCw size={15} className={loading?"spin":""}/>{loading?"Refreshing":"Refresh data"}</button><button className="button primary" onClick={()=>setTab("quality")}><Activity size={15}/>System health</button></div></div>
-        {demo && <div className="demo-banner"><Sparkles size={17}/><div><strong>Interactive UI preview</strong><span>Numbers and rows are illustrative, not production data. Add the read-only Supabase URL and anon key in Lovable project settings to switch to live queries.</span></div><span className="demo-tag">DEMO</span></div>}
+        <div className="page-heading"><div><div className="overline"><span className="overline-line"/>{data.archiveDocumentCount !== null ? "LIVE ARCHIVE ENVIRONMENT" : "CONNECTION NOT VERIFIED"} <span className="overline-sep">·</span> {new Date().toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}</div><h1>{current.title}</h1><p>{current.desc}</p></div><div className="heading-actions"><button className="button secondary" onClick={()=>void refresh()} disabled={loading}><RefreshCw size={15} className={loading?"spin":""}/>{loading?"Refreshing":"Refresh data"}</button><button className="button primary" onClick={()=>setTab("quality")}><Activity size={15}/>System health</button></div></div>
+        {data.archiveError && <div className="warning-banner"><CircleHelp size={18}/><div><strong>Archive summary unavailable</strong><span>{data.archiveError}</span></div></div>}
         {!demo && data.errors.length>0 && <div className="warning-banner"><CircleHelp size={18}/><div><strong>Source connected; some research tables could not be read</strong><span>Check table names and SELECT policies. The UI never writes to the database.</span></div></div>}
         {tab==="overview" && <>
           <div className="metrics-grid">
@@ -195,6 +182,7 @@ export default function App() {
           ["CMC context",tables.cmc,"Market-cap and macro snapshots; context only"]
         ].map(([name,table,desc],i)=><div className="source-table-row" key={String(name)}><div className="source-table-icon"><Database size={17}/></div><div className="source-table-name"><strong>{name}</strong><span>{desc}</span></div><div className="source-table-mapping">{demo?"Preview fixture":table??"No matching readable table"}</div><span className={`source-state ${demo||table?"ok":"missing"}`}>{demo?"DEMO":table?"READABLE":"UNMAPPED"}</span></div>)}</div>{data.errors.length>0&&!demo&&<div className="error-list">{data.errors.map(e=><p key={e}>{e}</p>)}</div>}</section><section className="panel"><SectionTitle eyebrow="OBSERVATION TIMELINE" title="Latest evidence" description="Each row is a point-in-time observation; future outcomes must not leak into entry context."/><div className="timeline">{evidence.slice(0,12).map((r,i)=><div className="timeline-row" key={r.id??i}><div className="timeline-rail"><span/></div><div className="timeline-time">{formatDate(r.observed_at??r.available_at??r.created_at??r.captured_at)}</div><div className="timeline-main"><strong>{r.source??r.source_name??r.evidence_type??"Research evidence"} <span>· {symbolOf(r)}</span></strong><p>{r.summary??r.description??r.quality_note??"Observation captured; inspect the source record for full provenance."}</p></div><span className="state-tag neutral">{r.quality??r.status??"Observed"}</span></div>)}{evidence.length===0&&<EmptyState title="No evidence rows readable" text="Connect a source table with SELECT access to populate the timeline."/>}</div></section></>}
         {tab==="memory" && <><div className="memory-intro"><div className="memory-art"><BrainCircuit size={31}/><Sparkles size={17}/></div><div><div className="eyebrow">COMPOUNDING RESEARCH KNOWLEDGE</div><h2>Lessons are evidence, not commands.</h2><p>Store post-mortems with source trade IDs, preserve uncertainty, and require repeated out-of-sample support before a hypothesis can influence a strategy.</p></div></div><div className="metrics-grid"><Metric label="Lessons available" value={String(lessons.length)} sub={demo?"Illustrative preview rows":"Loaded lesson rows"} icon={BookOpen}/><Metric label="Linked evidence" value={demo?"3":String(lessons.filter(r=>r.source_trade_id).length)} sub="Lessons with source_trade_id" icon={GitBranch}/><Metric label="Strategy auto-changes" value="0" sub="Not supported by this app" icon={ShieldCheck}/><Metric label="Knowledge status" value="Auditable" sub="Source-linked when available" icon={BrainCircuit}/></div><section className="panel"><SectionTitle eyebrow="COUNCIL / RESEARCH MEMORY" title="Latest post-mortems" description="Each lesson is displayed as recorded. Rule-based fallbacks and AI-generated lessons should remain distinguishable."/><div className="memory-list">{lessons.map((l,i)=><article className="memory-card" key={l.id??i}><div className="memory-card-top"><div className={`lesson-outcome ${String(l.outcome??l.verdict).toLowerCase().includes("win")?"win":"loss"}`}>{String(l.outcome??l.verdict??"?").slice(0,1).toUpperCase()}</div><div className="memory-title"><strong>{symbolOf(l)} <span className="state-tag neutral">{l.lesson_type??l.source??"Post-mortem"}</span></strong><small>{formatDate(l.created_at??l.observed_at)} {l.source_trade_id? `· trade ${String(l.source_trade_id).slice(0,8)}`:""}</small></div><span className={`outcome-label ${String(l.outcome??l.verdict).toLowerCase().includes("win")?"good":"bad"}`}>{l.outcome??l.verdict??"unclassified"}</span></div><p>{l.lesson??l.summary??l.content??"Lesson text is not available in this source row."}</p><div className="memory-card-foot"><span><Database size={13}/> Source-linked record</span><span><ShieldCheck size={13}/> No automatic strategy change</span></div></article>)}{lessons.length===0&&<EmptyState title="No lessons available" text="No rows were returned from the configured Council Lessons table."/>}</div></section><section className="panel"><SectionTitle eyebrow="KNOWLEDGE GOVERNANCE" title="Promotion gates" description="The Observatory makes the research process visible; it does not promote findings automatically."/><div className="promotion-grid"><div><span className="promotion-number">01</span><strong>Evidence quality</strong><p>Check timestamps, source IDs, missingness and duplicate keys.</p></div><div><span className="promotion-number">02</span><strong>Repeated support</strong><p>Require comparable samples and adequate sample size.</p></div><div><span className="promotion-number">03</span><strong>Out-of-sample validation</strong><p>Validate chronologically without using future labels as entry inputs.</p></div><div><span className="promotion-number">04</span><strong>Human review</strong><p>Keep strategy changes separate and explicitly approved.</p></div></div></section></>}
+        <section className="panel"><SectionTitle eyebrow="READ-ONLY ARCHIVE" title="Archive Inventory" description="Aggregates only · no archive payload values exposed."/><div className="source-status-note"><Database size={16}/><span>{data.archiveDocumentCount !== null ? `Archive connected · ${data.archiveDocumentCount.toLocaleString()} documents · verified ${formatDate(data.archiveGeneratedAt)}` : "Connection not verified"}</span></div>{data.archiveCategoryError && <p className="muted">{data.archiveCategoryError}</p>}<div className="table-scroll"><table><thead><tr><th>ARCHIVE CATEGORY</th><th>DOCUMENTS</th><th>DECLARED SOURCE ROWS (MAX)</th><th>DECLARED BATCH RECORDS</th><th>LAST ARCHIVED</th></tr></thead><tbody>{data.archiveCategories.slice(0,12).map((r,i)=><tr key={r.record_type ?? i}><td>{r.record_type}</td><td>{num(r.document_count).toLocaleString()}</td><td>{num(r.snapshot_rows_declared_max).toLocaleString()}</td><td>{num(r.batch_records_declared).toLocaleString()}</td><td>{formatDate(r.latest_created_at)}</td></tr>)}</tbody></table></div></section>
         <footer className="app-footer"><span>INTELLIGENT RESEARCH OBSERVATORY <span>·</span> v0.1.0</span><span><ShieldCheck size={13}/> Read-only dashboard <span>·</span> No execution pathways</span></footer>
       </div>
     </main>
