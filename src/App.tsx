@@ -22,7 +22,7 @@ const supabase: SupabaseClient | null = isLiveConfigured ? createClient(supabase
   auth: { persistSession: false, autoRefreshToken: false }
 }) : null;
 
-const demoTrades = [
+const demoTrades: Row[] = [
   { symbol:"BTC", strategy:"Balanced", status:"closed", pnl_pct:2.8, pnl:28.4, created_at:"2026-10-23T05:10:00Z", close_reason:"take_profit" },
   { symbol:"ETH", strategy:"Early Entry", status:"closed", pnl_pct:-1.1, pnl:-11.2, created_at:"2026-10-23T04:35:00Z", close_reason:"stale_exit" },
   { symbol:"ARB", strategy:"Event → Flow", status:"closed", pnl_pct:-3.18, pnl:-31.8, created_at:"2026-10-23T03:52:00Z", close_reason:"stop_loss" },
@@ -30,16 +30,16 @@ const demoTrades = [
   { symbol:"SOL", strategy:"Balanced", status:"open", pnl_pct:0.74, pnl:7.4, created_at:"2026-10-23T02:20:00Z", close_reason:"" },
   { symbol:"C98", strategy:"Chart", status:"closed", pnl_pct:-3.34, pnl:-33.4, created_at:"2026-10-23T01:44:00Z", close_reason:"stop_loss" },
 ];
-const demoLessons = [
+const demoLessons: Row[] = [
   { symbol:"ARB", outcome:"loss", lesson:"Stop-loss closed after a 3.18% decline. Review volatility-aware stop placement; this single observation is a hypothesis, not a strategy change.", created_at:"2026-10-23T04:51:00Z", lesson_type:"AI post-mortem" },
   { symbol:"FET", outcome:"win", lesson:"Exit was close to breakeven. Compare stop distance with realized volatility before inferring an upside effect.", created_at:"2026-10-23T04:50:00Z", lesson_type:"AI post-mortem" },
   { symbol:"C98", outcome:"loss", lesson:"A 3.34% decline triggered the stop. Segment results by volatility regime before changing thresholds.", created_at:"2026-10-23T04:49:00Z", lesson_type:"AI post-mortem" },
 ];
-const demoSeries = [
+const demoSeries: { day: string; pnl: number }[] = [
   { day:"17 Oct", pnl:34 }, { day:"18 Oct", pnl:18 }, { day:"19 Oct", pnl:61 },
   { day:"20 Oct", pnl:44 }, { day:"21 Oct", pnl:73 }, { day:"22 Oct", pnl:58 }, { day:"23 Oct", pnl:82 }
 ];
-const demoStrategies = [
+const demoStrategies: Row[] = [
   { name:"Balanced", n:42, win:64.3, pnl:3.82, status:"Research cohort" },
   { name:"Early Entry", n:18, win:61.1, pnl:2.14, status:"Paper metadata" },
   { name:"Event → Flow", n:26, win:57.7, pnl:1.08, status:"Research-only" },
