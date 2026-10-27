@@ -29,3 +29,9 @@ jobs:
         run: npm run build
       - name: Unit tests
         run: npm test
+      - name: Set up Deno for Edge Function checks
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check archive Edge Functions
+        run: deno check supabase/functions/archive-category-summary/index.ts supabase/functions/archive-records/index.ts
