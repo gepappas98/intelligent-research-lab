@@ -17,6 +17,25 @@ export function classifyArchiveType(
 }
 
 /**
+ * Return every requested category explicitly present in any supported metadata field.
+ * Matching is independent of display-classification precedence so OR-filtered documents
+ * cannot be silently dropped when a lower-priority field matches the requested category.
+ */
+export function matchingArchiveTypes(
+  payload: ArchivePayloadMetadata,
+  requested: readonly string[],
+): string[] {
+  const values = new Set<string>();
+  for (const key of ["record_type", "archive_type", "kind"] as const) {
+    const value = payload[key];
+    if (typeof value !== "string" || !value.trim()) continue;
+    const normalized = value.trim().slice(0, 120);
+    if (requested.includes(normalized)) values.add(normalized);
+  }
+  return [...values];
+}
+
+/**
  * PostgREST OR filter. Categories are server-side allowlisted identifiers, not user input.
  * Supabase/PostgREST applies this as one OR expression, so a document matches once even if
  * more than one metadata field contains the same requested category.
