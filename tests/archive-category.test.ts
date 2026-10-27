@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { buildArchiveTypeOrFilter, classifyArchiveType } from "../supabase/functions/_shared/archive-category.ts";
+import { buildArchiveTypeOrFilter, classifyArchiveType, matchingArchiveTypes } from "../supabase/functions/_shared/archive-category.ts";
 
 test("classification prefers record_type, then archive_type, then kind", () => {
   assert.equal(classifyArchiveType({ record_type: "primary", archive_type: "secondary", kind: "tertiary" }), "primary");
@@ -11,6 +11,18 @@ test("classification prefers record_type, then archive_type, then kind", () => {
 test("classification trims values and falls back for empty metadata", () => {
   assert.equal(classifyArchiveType({ record_type: "  ", archive_type: "  valid  " }), "valid");
   assert.equal(classifyArchiveType({}), "unclassified");
+});
+
+test("category matching honors all three fields independently of display precedence", () => {
+  assert.deepEqual(
+    matchingArchiveTypes({ record_type: "primary", archive_type: "secondary", kind: "tertiary" }, ["secondary", "tertiary"]),
+    ["secondary", "tertiary"],
+  );
+  assert.deepEqual(
+    matchingArchiveTypes({ record_type: "same", archive_type: "same", kind: "other" }, ["same"]),
+    ["same"],
+  );
+  assert.deepEqual(matchingArchiveTypes({ record_type: "primary" }, ["missing"]), []);
 });
 
 test("PostgREST filter searches all three classification fields", () => {
