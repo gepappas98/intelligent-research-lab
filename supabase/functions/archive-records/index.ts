@@ -41,7 +41,9 @@ Deno.serve(async (req: Request) => {
     // as the OR filter, rather than only the highest-priority display classification.
     for (let offset = 0; offset < MAX_DOCUMENTS; offset += PAGE_SIZE) {
       const { data: docs, error } = await db.from("research_archive_documents")
-        .select("id,payload,created_at,generated_at")
+        // Project only the fields required by this bounded response. The full JSONB
+        // payload can contain large metadata blobs unrelated to the requested records.
+        .select("id,records:payload->records,record_type:payload->>record_type,archive_type:payload->>archive_type,kind:payload->>kind,created_at,generated_at")
         .or(buildArchiveTypeOrFilter(requested))
         .order("created_at", { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
@@ -49,12 +51,11 @@ Deno.serve(async (req: Request) => {
       const page = docs ?? [];
       scannedDocuments += page.length;
       for (const doc of page) {
-        const p = doc.payload ?? {};
-        const matchedTypes = matchingArchiveTypes(p, requested);
+        const matchedTypes = matchingArchiveTypes(doc, requested);
         if (!matchedTypes.length) continue;
         for (const type of matchedTypes) {
           if (records[type].length >= limit) continue;
-          for (const item of (Array.isArray(p.records) ? p.records : [])) {
+          for (const item of (Array.isArray(doc.records) ? doc.records : [])) {
             if (records[type].length >= limit) break;
             if (item && typeof item === "object") records[type].push({
               ...item,
