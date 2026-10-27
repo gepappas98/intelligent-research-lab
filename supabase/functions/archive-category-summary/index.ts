@@ -1,3 +1,4 @@
+import { classifyArchiveType } from "../_shared/archive-category.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -49,8 +50,7 @@ Deno.serve(async (req: Request) => {
       const page = (data ?? []) as unknown as AggregateRow[];
       documentCount += page.length;
       for (const row of page) {
-        const rawType = row.record_type ?? row.archive_type ?? row.kind ?? "unclassified";
-        const type = typeof rawType === "string" && rawType.trim() ? rawType.trim().slice(0, 120) : "unclassified";
+        const type = classifyArchiveType(row);
         const group = groups.get(type) ?? { document_count: 0, latest_created_at: null, snapshot_rows_declared_max: 0, batch_records_declared: 0 };
         group.document_count++;
         const created = typeof row.generated_at === "string" ? row.generated_at : row.created_at;
