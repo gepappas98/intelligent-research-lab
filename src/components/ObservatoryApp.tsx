@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { readBoundedArchiveResponse } from "../lib/archive-response";
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bell, BookOpen, BrainCircuit, CheckCircle2,
   ChevronDown, CircleHelp, Clock3, Database, Download, ExternalLink, FlaskConical,
@@ -14,7 +15,7 @@ import {
 
 type Row = Record<string, any>;
 type ArchiveCategory = { record_type: string; document_count: number; latest_created_at: string | null; snapshot_rows_declared_max: number; batch_records_declared: number };
-type Dataset = { trades: Row[]; lessons: Row[]; evidence: Row[]; variants: Row[]; cmc: Row[]; errors: string[]; archiveDocumentCount: number | null; archiveGeneratedAt: string | null; archiveError: string | null; archiveCategories: ArchiveCategory[]; archiveCategoryError: string | null };
+type Dataset = { trades: Row[]; lessons: Row[]; evidence: Row[]; variants: Row[]; cmc: Row[]; errors: string[]; archiveDocumentCount: number | null; archiveGeneratedAt: string | null; archiveError: string | null; archiveCategories: ArchiveCategory[]; archiveCategoryError: string | null; archiveScanLimitReached: boolean };
 type Tab = "overview" | "strategies" | "quality" | "memory";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -33,6 +34,27 @@ const num = (v: unknown) => typeof v === "number" ? v : Number(v ?? 0);
 const pnlOf = (r: Row) => num(r.net_pnl ?? r.realized_pnl ?? r.pnl ?? r.pnl_pct ?? r.profit_loss);
 const symbolOf = (r: Row) => String(r.symbol ?? r.asset ?? r.ticker ?? "—").replace(/USDT$/i, "");
 const statusOf = (r: Row) => String(r.status ?? r.outcome ?? r.verdict ?? "observed").toLowerCase();
+
+async function invokeBoundedArchive(endpoint: "archive-summary" | "archive-category-summary") {
+  try {
+    // Supabase functions.invoke sends the project API key and, with this client configured
+    // without a persisted session, uses that key as the bearer token. Keep those headers.
+    const response = await fetch(`${supabaseUrl!.replace(/\/+$/, "")}/functions/v1/${endpoint}`, {
+      method: "GET",
+      headers: {
+        apikey: supabaseKey!,
+        Authorization: `Bearer ${supabaseKey!}`,
+        Accept: "application/json",
+      },
+    });
+    const parsed = await readBoundedArchiveResponse(response);
+    if (!response.ok) return { data: null, error: { message: `HTTP ${response.status}` } };
+    if (!parsed.ok) return { data: null, error: { message: `Archive response ${parsed.error}` } };
+    return { data: parsed.value, error: null };
+  } catch {
+    return { data: null, error: { message: "Archive request failed" } };
+  }
+}
 
 async function readTable(client: SupabaseClient, candidates: string[]): Promise<{ rows: Row[]; used: string | null; error?: string }> {
   for (const table of candidates) {
@@ -54,15 +76,15 @@ async function readTable(client: SupabaseClient, candidates: string[]): Promise<
 }
 
 function useResearchData() {
-  const [data, setData] = useState<Dataset>({ trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[], archiveDocumentCount:null, archiveGeneratedAt:null, archiveError:null, archiveCategories:[], archiveCategoryError:null });
+  const [data, setData] = useState<Dataset>({ trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[], archiveDocumentCount:null, archiveGeneratedAt:null, archiveError:null, archiveCategories:[], archiveCategoryError:null, archiveScanLimitReached:false });
   const [loading, setLoading] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [tables, setTables] = useState<Record<string,string>>({});
   const refresh = useCallback(async () => {
     if (!supabase) { setData(prior => ({...prior, archiveError:"Supabase environment variables are missing."})); setLastSync(new Date()); return; }
     setLoading(true);
-    const archivePromise = supabase.functions.invoke("archive-summary", { method: "GET" });
-    const categoryPromise = supabase.functions.invoke("archive-category-summary", { method: "GET" });
+    const archivePromise = invokeBoundedArchive("archive-summary");
+    const categoryPromise = invokeBoundedArchive("archive-category-summary");
     const specs = [
       ["trades", ["trades", "paper_trades", "trade_outcomes"]],
       ["lessons", ["council_lessons", "ai_council_lessons", "research_lessons"]],
@@ -73,13 +95,14 @@ function useResearchData() {
     const results = await Promise.all(specs.map(async ([key, candidates]) => [key, await readTable(supabase!, [...candidates])] as const));
     const [archiveResult, categoryResult] = await Promise.all([archivePromise, categoryPromise]);
     const summary = archiveResult.data as { document_count?: number; generated_at?: string } | null;
-    const categorySummary = categoryResult.data as { by_type?: ArchiveCategory[] } | null;
+    const categorySummary = categoryResult.data as { by_type?: ArchiveCategory[]; scan_limit_reached?: boolean } | null;
     const hasCategories = Array.isArray(categorySummary?.by_type);
     const next: any = { trades:[], lessons:[], evidence:[], variants:[], cmc:[], errors:[],
       archiveDocumentCount: archiveResult.error ? null : (typeof summary?.document_count === "number" ? summary.document_count : null),
       archiveGeneratedAt: summary?.generated_at ?? null,
       archiveError: archiveResult.error ? "archive-summary request failed" : (typeof summary?.document_count === "number" ? null : "archive-summary returned no document_count"),
       archiveCategories: categoryResult.error || !hasCategories ? [] : categorySummary!.by_type!,
+      archiveScanLimitReached: categoryResult.error ? false : Boolean(categorySummary?.scan_limit_reached),
       archiveCategoryError: categoryResult.error ? "archive-category-summary request failed" : (hasCategories ? null : "archive-category-summary returned no categories")
     };
     const used: Record<string,string> = {};
@@ -183,7 +206,7 @@ export default function App() {
           ["CMC context",tables.cmc,"Market-cap and macro snapshots; context only"]
         ].map(([name,table,desc],i)=><div className="source-table-row" key={String(name)}><div className="source-table-icon"><Database size={17}/></div><div className="source-table-name"><strong>{name}</strong><span>{desc}</span></div><div className="source-table-mapping">{demo?"Preview fixture":table??"No matching readable table"}</div><span className={`source-state ${demo||table?"ok":"missing"}`}>{demo?"DEMO":table?"READABLE":"UNMAPPED"}</span></div>)}</div>{data.errors.length>0&&!demo&&<div className="error-list">{data.errors.map(e=><p key={e}>{e}</p>)}</div>}</section><section className="panel"><SectionTitle eyebrow="OBSERVATION TIMELINE" title="Latest evidence" description="Each row is a point-in-time observation; future outcomes must not leak into entry context."/><div className="timeline">{evidence.slice(0,12).map((r,i)=><div className="timeline-row" key={r.id??i}><div className="timeline-rail"><span/></div><div className="timeline-time">{formatDate(r.observed_at??r.available_at??r.created_at??r.captured_at)}</div><div className="timeline-main"><strong>{r.source??r.source_name??r.evidence_type??"Research evidence"} <span>· {symbolOf(r)}</span></strong><p>{r.summary??r.description??r.quality_note??"Observation captured; inspect the source record for full provenance."}</p></div><span className="state-tag neutral">{r.quality??r.status??"Observed"}</span></div>)}{evidence.length===0&&<EmptyState title="No evidence rows readable" text="Connect a source table with SELECT access to populate the timeline."/>}</div></section></>}
         {tab==="memory" && <><div className="memory-intro"><div className="memory-art"><BrainCircuit size={31}/><Sparkles size={17}/></div><div><div className="eyebrow">COMPOUNDING RESEARCH KNOWLEDGE</div><h2>Lessons are evidence, not commands.</h2><p>Store post-mortems with source trade IDs, preserve uncertainty, and require repeated out-of-sample support before a hypothesis can influence a strategy.</p></div></div><div className="metrics-grid"><Metric label="Lessons available" value={String(lessons.length)} sub={demo?"Illustrative preview rows":"Loaded lesson rows"} icon={BookOpen}/><Metric label="Linked evidence" value={demo?"3":String(lessons.filter(r=>r.source_trade_id).length)} sub="Lessons with source_trade_id" icon={GitBranch}/><Metric label="Strategy auto-changes" value="0" sub="Not supported by this app" icon={ShieldCheck}/><Metric label="Knowledge status" value="Auditable" sub="Source-linked when available" icon={BrainCircuit}/></div><section className="panel"><SectionTitle eyebrow="COUNCIL / RESEARCH MEMORY" title="Latest post-mortems" description="Each lesson is displayed as recorded. Rule-based fallbacks and AI-generated lessons should remain distinguishable."/><div className="memory-list">{lessons.map((l,i)=><article className="memory-card" key={l.id??i}><div className="memory-card-top"><div className={`lesson-outcome ${String(l.outcome??l.verdict).toLowerCase().includes("win")?"win":"loss"}`}>{String(l.outcome??l.verdict??"?").slice(0,1).toUpperCase()}</div><div className="memory-title"><strong>{symbolOf(l)} <span className="state-tag neutral">{l.lesson_type??l.source??"Post-mortem"}</span></strong><small>{formatDate(l.created_at??l.observed_at)} {l.source_trade_id? `· trade ${String(l.source_trade_id).slice(0,8)}`:""}</small></div><span className={`outcome-label ${String(l.outcome??l.verdict).toLowerCase().includes("win")?"good":"bad"}`}>{l.outcome??l.verdict??"unclassified"}</span></div><p>{l.lesson??l.summary??l.content??"Lesson text is not available in this source row."}</p><div className="memory-card-foot"><span><Database size={13}/> Source-linked record</span><span><ShieldCheck size={13}/> No automatic strategy change</span></div></article>)}{lessons.length===0&&<EmptyState title="No lessons available" text="No rows were returned from the configured Council Lessons table."/>}</div></section><section className="panel"><SectionTitle eyebrow="KNOWLEDGE GOVERNANCE" title="Promotion gates" description="The Observatory makes the research process visible; it does not promote findings automatically."/><div className="promotion-grid"><div><span className="promotion-number">01</span><strong>Evidence quality</strong><p>Check timestamps, source IDs, missingness and duplicate keys.</p></div><div><span className="promotion-number">02</span><strong>Repeated support</strong><p>Require comparable samples and adequate sample size.</p></div><div><span className="promotion-number">03</span><strong>Out-of-sample validation</strong><p>Validate chronologically without using future labels as entry inputs.</p></div><div><span className="promotion-number">04</span><strong>Human review</strong><p>Keep strategy changes separate and explicitly approved.</p></div></div></section></>}
-        <section className="panel"><SectionTitle eyebrow="READ-ONLY ARCHIVE" title="Archive Inventory" description="Aggregates only · no archive payload values exposed."/><div className="source-status-note"><Database size={16}/><span>{data.archiveDocumentCount !== null ? `Archive connected · ${data.archiveDocumentCount.toLocaleString()} documents · verified ${formatDate(data.archiveGeneratedAt)}` : "Connection not verified"}</span></div>{data.archiveCategoryError && <p className="muted">{data.archiveCategoryError}</p>}<div className="table-scroll"><table><thead><tr><th>ARCHIVE CATEGORY</th><th>DOCUMENTS</th><th>DECLARED SOURCE ROWS (MAX)</th><th>DECLARED BATCH RECORDS</th><th>LAST ARCHIVED</th></tr></thead><tbody>{data.archiveCategories.slice(0,12).map((r,i)=><tr key={r.record_type ?? i}><td>{r.record_type}</td><td>{num(r.document_count).toLocaleString()}</td><td>{num(r.snapshot_rows_declared_max).toLocaleString()}</td><td>{num(r.batch_records_declared).toLocaleString()}</td><td>{formatDate(r.latest_created_at)}</td></tr>)}</tbody></table></div></section>
+        <section className="panel"><SectionTitle eyebrow="READ-ONLY ARCHIVE" title="Archive Inventory" description="Aggregates only · no archive payload values exposed."/><div className="source-status-note"><Database size={16}/><span>{data.archiveDocumentCount !== null ? `Archive connected · ${data.archiveDocumentCount.toLocaleString()} documents · verified ${formatDate(data.archiveGeneratedAt)}` : "Connection not verified"}</span></div>{data.archiveCategoryError && <p className="muted">{data.archiveCategoryError}</p>}{data.archiveScanLimitReached && <p className="muted">Archive scan reached the 40,000-document safety cap; category totals may be incomplete.</p>}<div className="table-scroll"><table><thead><tr><th>ARCHIVE CATEGORY</th><th>DOCUMENTS</th><th>DECLARED SOURCE ROWS (MAX)</th><th>DECLARED BATCH RECORDS</th><th>LAST ARCHIVED</th></tr></thead><tbody>{data.archiveCategories.slice(0,12).map((r,i)=><tr key={r.record_type ?? i}><td>{r.record_type}</td><td>{num(r.document_count).toLocaleString()}</td><td>{num(r.snapshot_rows_declared_max).toLocaleString()}</td><td>{num(r.batch_records_declared).toLocaleString()}</td><td>{formatDate(r.latest_created_at)}</td></tr>)}</tbody></table></div></section>
         <footer className="app-footer"><span>INTELLIGENT RESEARCH OBSERVATORY <span>·</span> v0.1.0</span><span><ShieldCheck size={13}/> Read-only dashboard <span>·</span> No execution pathways</span></footer>
       </div>
     </main>
