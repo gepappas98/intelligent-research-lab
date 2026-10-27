@@ -1,3 +1,4 @@
+import { buildArchiveTypeOrFilter, classifyArchiveType } from "../_shared/archive-category.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -40,7 +41,7 @@ Deno.serve(async (req: Request) => {
     for (let offset = 0; offset < MAX_DOCUMENTS; offset += PAGE_SIZE) {
       const { data: docs, error } = await db.from("research_archive_documents")
         .select("id,payload,created_at,generated_at")
-        .in("payload->>record_type", requested)
+        .or(buildArchiveTypeOrFilter(requested))
         .order("created_at", { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
       if (error) return new Response(JSON.stringify({ error: "Archive payload query failed", detail: error.message, scanned_documents: scannedDocuments }), { status: 502, headers: cors });
@@ -48,7 +49,7 @@ Deno.serve(async (req: Request) => {
       scannedDocuments += page.length;
       for (const doc of page) {
         const p = doc.payload ?? {};
-        const type = String(p.record_type ?? p.archive_type ?? p.kind ?? "");
+        const type = classifyArchiveType(p, "");
         if (!records[type] || records[type].length >= limit) continue;
         for (const item of (Array.isArray(p.records) ? p.records : [])) {
           if (records[type].length >= limit) break;
