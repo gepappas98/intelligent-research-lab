@@ -58,7 +58,7 @@ async function invokeBoundedArchive(endpoint: "archive-summary" | "archive-categ
 
 async function invokeArchiveRecords(category: string) {
   try {
-    const response = await fetch(`${supabaseUrl!.replace(/\\/+$/, "")}/functions/v1/archive-records`, {
+    const response = await fetch(`${supabaseUrl!.replace(/\/+$/, "")}/functions/v1/archive-records`, {
       method: "POST",
       headers: {
         apikey: supabaseKey!,
