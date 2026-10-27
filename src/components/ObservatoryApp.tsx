@@ -21,6 +21,17 @@ type Tab = "overview" | "strategies" | "quality" | "memory";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY) as string | undefined;
 const isLiveConfigured = Boolean(supabaseUrl && supabaseKey);
+const RETRIEVABLE_ARCHIVE_CATEGORIES = new Set([
+  "closed_trades_with_entry_context", "trades_with_entry_context_current_state", "council_lessons",
+  "research_cases", "research_evidence", "strategy_variant_signals", "cmc_listing_snapshots",
+  "cmc_listing_research_observations", "early_entry_candle_lineage", "cmc_listing_snapshots_latest",
+  "cmc_macro_snapshots", "early_entry_variant_decisions", "early_entry_regime_observations",
+  "event_flow_study_snapshots", "event_flow_paper_decisions", "event_flow_transmissions",
+  "accumulation_shadow_observations", "dynamic_watchlist_snapshots", "market_candles",
+  "market_regime_telemetry", "market_sentiment_snapshots", "strategy_config",
+  "research_live_sync_manifest", "research_source_inventory",
+]);
+
 const supabase: SupabaseClient | null = isLiveConfigured ? createClient(supabaseUrl!, supabaseKey!, {
   auth: { persistSession: false, autoRefreshToken: false }
 }) : null;
@@ -257,7 +268,7 @@ export default function App() {
             <div className="table-tools">
               <select aria-label="Archive category" value={archiveRecordCategory} onChange={e=>setArchiveRecordCategory(e.target.value)}>
                 <option value="">Choose category…</option>
-                {data.archiveCategories.map(c=><option key={c.record_type} value={c.record_type}>{c.record_type}</option>)}
+                {data.archiveCategories.filter(c=>RETRIEVABLE_ARCHIVE_CATEGORIES.has(c.record_type)).map(c=><option key={c.record_type} value={c.record_type}>{c.record_type}</option>)}
               </select>
               <button className="button secondary compact" disabled={archiveRecordsLoading || !archiveRecordCategory || !isLiveConfigured} onClick={()=>void loadArchiveRecords(archiveRecordCategory)}><Search size={14}/>{archiveRecordsLoading?"Loading…":"Load records"}</button>
             </div>
