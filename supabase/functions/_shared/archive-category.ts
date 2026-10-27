@@ -35,7 +35,7 @@ export function buildArchiveTypeOrFilter(categories: readonly string[]): string 
 /** Validate the public application key in code when gateway JWT verification is disabled. */
 export function isAuthorizedArchiveRequest(
   request: Request,
-  configuredPublishableKeys: string | null,
+  configuredPublishableKeys: string | null | undefined,
 ): boolean {
   const suppliedKey = request.headers.get("apikey")?.trim();
   if (!suppliedKey || !configuredPublishableKeys) return false;
