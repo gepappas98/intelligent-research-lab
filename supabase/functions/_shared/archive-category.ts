@@ -31,3 +31,22 @@ export function buildArchiveTypeOrFilter(categories: readonly string[]): string 
     `payload->>kind.in.(${list})`,
   ].join(",");
 }
+
+/** Validate the public application key in code when gateway JWT verification is disabled. */
+export function isAuthorizedArchiveRequest(
+  request: Request,
+  configuredPublishableKeys: string | null,
+): boolean {
+  const suppliedKey = request.headers.get("apikey")?.trim();
+  if (!suppliedKey || !configuredPublishableKeys) return false;
+
+  try {
+    const parsed: unknown = JSON.parse(configuredPublishableKeys);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+    const keys = Object.values(parsed as Record<string, unknown>)
+      .filter((value): value is string => typeof value === "string" && value.length > 0);
+    return keys.includes(suppliedKey);
+  } catch {
+    return false;
+  }
+}
