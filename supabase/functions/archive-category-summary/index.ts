@@ -38,31 +38,29 @@ Deno.serve(async (req: Request) => {
     let documentCount = 0;
     let scanLimitReached = false;
 
-    // Project only classification/count metadata from JSON; never transfer full payloads.
-    for (let offset = 0; offset < MAX_DOCUMENTS; offset += PAGE_SIZE) {
-      const { data, error } = await db.from("research_archive_documents")
-        .select("id,record_type:payload->>record_type,archive_type:payload->>archive_type,kind:payload->>kind,source_row_count:payload->>source_row_count,record_count:payload->>record_count,rows:payload->>rows,created_at,generated_at")
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true })
-        .range(offset, offset + PAGE_SIZE - 1);
-      if (error) return new Response(JSON.stringify({ error: "archive_read_failed", detail: error.message }), { status: 502, headers });
+    // One bounded metadata projection avoids dozens of page requests on every dashboard refresh.
+    // This is not an indexed aggregate: it still scans the archive, but transfers only selected metadata.
+    const { data, error } = await db.from("research_archive_documents")
+      .select("id,record_type:payload->>record_type,archive_type:payload->>archive_type,kind:payload->>kind,source_row_count:payload->>source_row_count,record_count:payload->>record_count,rows:payload->>rows,created_at,generated_at")
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(0, MAX_DOCUMENTS - 1);
+    if (error) return new Response(JSON.stringify({ error: "archive_read_failed", detail: error.message }), { status: 502, headers });
 
-      const page = (data ?? []) as unknown as AggregateRow[];
-      documentCount += page.length;
-      for (const row of page) {
-        const type = classifyArchiveType(row);
-        const group = groups.get(type) ?? { document_count: 0, latest_created_at: null, snapshot_rows_declared_max: 0, batch_records_declared: 0 };
-        group.document_count++;
-        const created = typeof row.generated_at === "string" ? row.generated_at : row.created_at;
-        if (created && (!group.latest_created_at || created > group.latest_created_at)) group.latest_created_at = created;
-        const sourceRows = Number(row.source_row_count ?? 0);
-        if (Number.isFinite(sourceRows) && sourceRows > group.snapshot_rows_declared_max) group.snapshot_rows_declared_max = sourceRows;
-        const batchRecords = Number(row.record_count ?? row.rows ?? 0);
-        if (Number.isFinite(batchRecords) && batchRecords > 0) group.batch_records_declared += batchRecords;
-        groups.set(type, group);
-      }
-      if (page.length < PAGE_SIZE) break;
-      if (offset + PAGE_SIZE >= MAX_DOCUMENTS) scanLimitReached = true;
+    const page = (data ?? []) as unknown as AggregateRow[];
+    const documentCount = page.length;
+    const scanLimitReached = page.length === MAX_DOCUMENTS;
+    for (const row of page) {
+      const type = classifyArchiveType(row);
+      const group = groups.get(type) ?? { document_count: 0, latest_created_at: null, snapshot_rows_declared_max: 0, batch_records_declared: 0 };
+      group.document_count++;
+      const created = typeof row.generated_at === "string" ? row.generated_at : row.created_at;
+      if (created && (!group.latest_created_at || created > group.latest_created_at)) group.latest_created_at = created;
+      const sourceRows = Number(row.source_row_count ?? 0);
+      if (Number.isFinite(sourceRows) && sourceRows > group.snapshot_rows_declared_max) group.snapshot_rows_declared_max = sourceRows;
+      const batchRecords = Number(row.record_count ?? row.rows ?? 0);
+      if (Number.isFinite(batchRecords) && batchRecords > 0) group.batch_records_declared += batchRecords;
+      groups.set(type, group);
     }
 
     const byType = [...groups.entries()].map(([record_type, values]) => ({ record_type, ...values }))
