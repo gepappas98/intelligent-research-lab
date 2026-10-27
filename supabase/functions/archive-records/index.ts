@@ -17,7 +17,7 @@ const ALLOWED = new Set([
   "market_candles", "market_regime_telemetry", "market_sentiment_snapshots", "strategy_config", "research_live_sync_manifest", "research_source_inventory",
 ]);
 const PAGE_SIZE = 500;
-const MAX_DOCUMENTS = 20000;
+const MAX_DOCUMENTS = 5000;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -66,6 +66,8 @@ Deno.serve(async (req: Request) => {
           }
         }
       }
+      // Stop scanning once every requested category has its bounded result set.
+      if (requested.every((type: string) => records[type].length >= limit)) break;
       if (page.length < PAGE_SIZE) break;
       if (offset + PAGE_SIZE >= MAX_DOCUMENTS) scanLimitReached = true;
     }
