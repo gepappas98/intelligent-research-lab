@@ -1,4 +1,4 @@
-import { classifyArchiveType } from "../_shared/archive-category.ts";
+import { classifyArchiveType, isAuthorizedArchiveRequest } from "../_shared/archive-category.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const headers = {
@@ -28,6 +28,9 @@ type AggregateRow = {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "GET") return new Response(JSON.stringify({ error: "method_not_allowed" }), { status: 405, headers });
+  if (!isAuthorizedArchiveRequest(req, Deno.env.get("SUPABASE_PUBLISHABLE_KEYS"))) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers });
+  }
 
   const url = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
