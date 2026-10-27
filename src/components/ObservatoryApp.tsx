@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { readBoundedArchiveResponse } from "../lib/archive-response";
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bell, BookOpen, BrainCircuit, CheckCircle2,
   ChevronDown, CircleHelp, Clock3, Database, Download, ExternalLink, FlaskConical,
@@ -34,6 +35,27 @@ const pnlOf = (r: Row) => num(r.net_pnl ?? r.realized_pnl ?? r.pnl ?? r.pnl_pct 
 const symbolOf = (r: Row) => String(r.symbol ?? r.asset ?? r.ticker ?? "—").replace(/USDT$/i, "");
 const statusOf = (r: Row) => String(r.status ?? r.outcome ?? r.verdict ?? "observed").toLowerCase();
 
+async function invokeBoundedArchive(endpoint: "archive-summary" | "archive-category-summary") {
+  try {
+    // Supabase functions.invoke sends the project API key and, with this client configured
+    // without a persisted session, uses that key as the bearer token. Keep those headers.
+    const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
+      method: "GET",
+      headers: {
+        apikey: supabaseKey!,
+        Authorization: `Bearer ${supabaseKey!}`,
+        Accept: "application/json",
+      },
+    });
+    const parsed = await readBoundedArchiveResponse(response);
+    if (!response.ok) return { data: null, error: { message: `HTTP ${response.status}` } };
+    if (!parsed.ok) return { data: null, error: { message: `Archive response ${parsed.error}` } };
+    return { data: parsed.value, error: null };
+  } catch {
+    return { data: null, error: { message: "Archive request failed" } };
+  }
+}
+
 async function readTable(client: SupabaseClient, candidates: string[]): Promise<{ rows: Row[]; used: string | null; error?: string }> {
   for (const table of candidates) {
     const ordered = await client.from(table).select("*").order("created_at", { ascending: false }).limit(150);
@@ -61,8 +83,8 @@ function useResearchData() {
   const refresh = useCallback(async () => {
     if (!supabase) { setData(prior => ({...prior, archiveError:"Supabase environment variables are missing."})); setLastSync(new Date()); return; }
     setLoading(true);
-    const archivePromise = supabase.functions.invoke("archive-summary", { method: "GET" });
-    const categoryPromise = supabase.functions.invoke("archive-category-summary", { method: "GET" });
+    const archivePromise = invokeBoundedArchive("archive-summary");
+    const categoryPromise = invokeBoundedArchive("archive-category-summary");
     const specs = [
       ["trades", ["trades", "paper_trades", "trade_outcomes"]],
       ["lessons", ["council_lessons", "ai_council_lessons", "research_lessons"]],
