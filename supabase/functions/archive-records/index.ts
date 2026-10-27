@@ -1,4 +1,4 @@
-import { buildArchiveTypeOrFilter, classifyArchiveType } from "../_shared/archive-category.ts";
+import { buildArchiveTypeOrFilter, classifyArchiveType, isAuthorizedArchiveRequest } from "../_shared/archive-category.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -22,6 +22,9 @@ const MAX_DOCUMENTS = 20000;
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return new Response(JSON.stringify({ error: "POST required" }), { status: 405, headers: cors });
+  if (!isAuthorizedArchiveRequest(req, Deno.env.get("SUPABASE_PUBLISHABLE_KEYS"))) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: cors });
+  }
   try {
     const url = Deno.env.get("SUPABASE_URL");
     const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
