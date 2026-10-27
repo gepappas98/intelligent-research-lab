@@ -39,7 +39,7 @@ async function invokeBoundedArchive(endpoint: "archive-summary" | "archive-categ
   try {
     // Supabase functions.invoke sends the project API key and, with this client configured
     // without a persisted session, uses that key as the bearer token. Keep those headers.
-    const response = await fetch(`${supabaseUrl!.replace(/\\/+$/, "")}/functions/v1/${endpoint}`, {
+    const response = await fetch(`${supabaseUrl!.replace(/\/+$/, "")}/functions/v1/${endpoint}`, {
       method: "GET",
       headers: {
         apikey: supabaseKey!,
