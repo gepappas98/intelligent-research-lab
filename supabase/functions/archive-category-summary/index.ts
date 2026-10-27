@@ -42,8 +42,6 @@ Deno.serve(async (req: Request) => {
     let scanLimitReached = false;
 
     // Keyset pagination on the primary key avoids repeated OFFSET scans. Only metadata is projected.
-    let documentCount = 0;
-    let scanLimitReached = false;
     let lastId: string | null = null;
     while (documentCount < MAX_DOCUMENTS) {
       let query = db.from("research_archive_documents")
