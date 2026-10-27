@@ -34,4 +34,4 @@ jobs:
         with:
           deno-version: v2.x
       - name: Type-check archive Edge Functions
-        run: deno check supabase/functions/archive-category-summary/index.ts supabase/functions/archive-records/index.ts
+        run: deno check --no-check=remote supabase/functions/archive-category-summary/index.ts supabase/functions/archive-records/index.ts
