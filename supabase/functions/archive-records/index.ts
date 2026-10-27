@@ -1,4 +1,4 @@
-import { buildArchiveTypeOrFilter, classifyArchiveType } from "../_shared/archive-category.ts";
+import { buildArchiveTypeOrFilter, matchingArchiveTypes } from "../_shared/archive-category.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -37,7 +37,8 @@ Deno.serve(async (req: Request) => {
     let scannedDocuments = 0;
     let scanLimitReached = false;
 
-    // Paginate the full archive. Do not silently ignore older documents after the first 1,000.
+    // Paginate the matching archive documents. Category assignment uses the same three fields
+    // as the OR filter, rather than only the highest-priority display classification.
     for (let offset = 0; offset < MAX_DOCUMENTS; offset += PAGE_SIZE) {
       const { data: docs, error } = await db.from("research_archive_documents")
         .select("id,payload,created_at,generated_at")
@@ -49,17 +50,20 @@ Deno.serve(async (req: Request) => {
       scannedDocuments += page.length;
       for (const doc of page) {
         const p = doc.payload ?? {};
-        const type = classifyArchiveType(p, "");
-        if (!records[type] || records[type].length >= limit) continue;
-        for (const item of (Array.isArray(p.records) ? p.records : [])) {
-          if (records[type].length >= limit) break;
-          if (item && typeof item === "object") records[type].push({
-            ...item,
-            _archive_document_id: doc.id,
-            _archive_created_at: doc.created_at,
-            _archive_generated_at: doc.generated_at,
-            _archive_record_type: type,
-          });
+        const matchedTypes = matchingArchiveTypes(p, requested);
+        if (!matchedTypes.length) continue;
+        for (const type of matchedTypes) {
+          if (records[type].length >= limit) continue;
+          for (const item of (Array.isArray(p.records) ? p.records : [])) {
+            if (records[type].length >= limit) break;
+            if (item && typeof item === "object") records[type].push({
+              ...item,
+              _archive_document_id: doc.id,
+              _archive_created_at: doc.created_at,
+              _archive_generated_at: doc.generated_at,
+              _archive_record_type: type,
+            });
+          }
         }
       }
       if (page.length < PAGE_SIZE) break;
