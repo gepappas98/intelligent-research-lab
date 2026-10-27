@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({
       generated_at: new Date().toISOString(),
       source: "research_archive_documents",
-      scan_mode: "paginated_full_archive",
+      scan_mode: "bounded_recent_first_scan",
       scanned_documents: scannedDocuments,
       scan_limit_reached: scanLimitReached,
       categories: records,
