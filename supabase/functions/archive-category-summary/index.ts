@@ -11,7 +11,9 @@ const headers = {
 };
 
 const PAGE_SIZE = 1000;
-const MAX_DOCUMENTS = 30000;
+const MAX_DOCUMENTS = 40000;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+let cachedSummary: { body: string; expiresAt: number } | null = null;
 type AggregateRow = {
   id: string;
   record_type: string | null;
@@ -31,6 +33,7 @@ Deno.serve(async (req: Request) => {
   const url = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !serviceRoleKey) return new Response(JSON.stringify({ error: "server_configuration_missing" }), { status: 500, headers });
+  if (cachedSummary && cachedSummary.expiresAt > Date.now()) return new Response(cachedSummary.body, { status: 200, headers });
 
   try {
     const db = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -38,16 +41,17 @@ Deno.serve(async (req: Request) => {
     let documentCount = 0;
     let scanLimitReached = false;
 
-    // Page at the REST API's configured row ceiling. Only metadata is projected; full payloads
-    // are never transferred. Keep the scan capped and disclose if the cap is reached.
+    // Keyset pagination on the primary key avoids repeated OFFSET scans. Only metadata is projected.
     let documentCount = 0;
     let scanLimitReached = false;
-    for (let offset = 0; offset < MAX_DOCUMENTS; offset += PAGE_SIZE) {
-      const { data, error } = await db.from("research_archive_documents")
+    let lastId: string | null = null;
+    while (documentCount < MAX_DOCUMENTS) {
+      let query = db.from("research_archive_documents")
         .select("id,record_type:payload->>record_type,archive_type:payload->>archive_type,kind:payload->>kind,source_row_count:payload->>source_row_count,record_count:payload->>record_count,rows:payload->>rows,created_at,generated_at")
-        .order("created_at", { ascending: true })
         .order("id", { ascending: true })
-        .range(offset, offset + PAGE_SIZE - 1);
+        .limit(Math.min(PAGE_SIZE, MAX_DOCUMENTS - documentCount));
+      if (lastId) query = query.gt("id", lastId);
+      const { data, error } = await query;
       if (error) return new Response(JSON.stringify({ error: "archive_read_failed", detail: error.message }), { status: 502, headers });
 
       const page = (data ?? []) as unknown as AggregateRow[];
@@ -65,13 +69,14 @@ Deno.serve(async (req: Request) => {
         groups.set(type, group);
       }
       if (page.length < PAGE_SIZE) break;
-      if (offset + PAGE_SIZE >= MAX_DOCUMENTS) scanLimitReached = true;
+      lastId = page[page.length - 1].id;
+      if (documentCount >= MAX_DOCUMENTS) scanLimitReached = true;
     }
 
     const byType = [...groups.entries()].map(([record_type, values]) => ({ record_type, ...values }))
       .sort((a, b) => b.document_count - a.document_count || a.record_type.localeCompare(b.record_type));
 
-    return new Response(JSON.stringify({
+    const body = JSON.stringify({
       source: "research_archive_documents",
       access_mode: "read_only_aggregate",
       document_count: documentCount,
@@ -80,7 +85,9 @@ Deno.serve(async (req: Request) => {
       payload_values_exposed: false,
       scan_limit_reached: scanLimitReached,
       generated_at: new Date().toISOString(),
-    }), { headers });
+    });
+    cachedSummary = { body, expiresAt: Date.now() + CACHE_TTL_MS };
+    return new Response(body, { headers });
   } catch {
     return new Response(JSON.stringify({ error: "archive_summary_failed" }), { status: 500, headers });
   }
